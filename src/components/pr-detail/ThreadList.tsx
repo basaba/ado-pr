@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
+import { MarkdownContent } from '../common';
 
 interface Props {
   threads: PullRequestThread[];
@@ -115,7 +116,7 @@ function ThreadItem({
               <span className="font-medium text-gray-700">{comment.author.displayName}</span>
               <span>{formatDate(comment.publishedDate)}</span>
             </div>
-            <div className="text-sm text-gray-800 whitespace-pre-wrap">{comment.content}</div>
+            <MarkdownContent content={comment.content} className="text-sm text-gray-800" />
           </div>
         ))}
       </div>

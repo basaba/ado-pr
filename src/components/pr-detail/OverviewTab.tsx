@@ -2,6 +2,7 @@ import type { PullRequest } from '../../types';
 import { VOTE_LABELS, VOTE_COLORS } from '../../types';
 import type { useThreads } from '../../hooks';
 import { isTextComment } from '../../utils';
+import { MarkdownContent } from '../common';
 import { ThreadList } from './ThreadList';
 
 interface Props {
@@ -21,8 +22,8 @@ export function OverviewTab({ pr, threads }: Props) {
       <section>
         <h2 className="text-sm font-semibold text-gray-700 mb-2">Description</h2>
         {pr.description ? (
-          <div className="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded p-4 whitespace-pre-wrap">
-            {pr.description}
+          <div className="bg-gray-50 rounded p-4">
+            <MarkdownContent content={pr.description} className="text-gray-700" />
           </div>
         ) : (
           <p className="text-gray-400 text-sm italic">No description provided.</p>

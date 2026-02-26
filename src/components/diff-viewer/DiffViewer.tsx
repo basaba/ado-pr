@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
+import { MarkdownContent } from '../common';
 
 interface Props {
   oldContent: string;
@@ -358,7 +359,7 @@ function InlineThread({
         <div key={c.id} className="pl-2 border-l-2 border-gray-200">
           <span className="font-medium text-gray-700 text-xs">{c.author.displayName}</span>
           <span className="text-gray-400 text-xs ml-2">{formatDate(c.publishedDate)}</span>
-          <div className="text-gray-800 whitespace-pre-wrap">{c.content}</div>
+          <MarkdownContent content={c.content} className="text-gray-800 text-sm" />
         </div>
       ))}
       {showReply ? (
