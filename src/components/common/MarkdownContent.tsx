@@ -1,4 +1,5 @@
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Props {
   content: string;
@@ -8,7 +9,7 @@ interface Props {
 export function MarkdownContent({ content, className = '' }: Props) {
   return (
     <div className={`prose prose-sm max-w-none break-words ${className}`}>
-      <Markdown>{content}</Markdown>
+      <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
     </div>
   );
 }
