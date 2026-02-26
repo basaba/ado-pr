@@ -173,7 +173,7 @@ export function DiffViewer({
         lineTextColors={lineTextColors}
         gutterColors={gutterColors}
         lineThreads={lineThreads}
-        isCommentOpen={commentLine === newLineNum}
+        isCommentOpen={commentLine != null && commentLine === newLineNum}
         onGutterClick={() => {
           if (newLineNum) {
             setCommentLine(commentLine === newLineNum ? null : newLineNum);
