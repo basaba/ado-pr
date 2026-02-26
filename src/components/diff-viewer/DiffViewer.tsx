@@ -112,6 +112,7 @@ export function DiffViewer({
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [containerWidth, setContainerWidth] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -222,7 +223,7 @@ export function DiffViewer({
       {hasCollapsed && (
         <div className="flex justify-end px-3 py-1.5 bg-gray-50 border-b border-gray-200 font-sans">
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => { setExpanded(!expanded); setExpandedSections(new Set()); }}
             className="text-xs text-blue-600 hover:underline"
           >
             {expanded ? '⊟ Compact diff' : '⊞ Show full file'}
@@ -236,12 +237,20 @@ export function DiffViewer({
             ? diffLines.map((_, idx) => renderDiffLine(idx))
             : hunks.map((item, hunkIdx) => {
                 if (item.kind === 'line') return renderDiffLine(item.idx);
+                if (expandedSections.has(hunkIdx)) {
+                  // Render all lines in this expanded section
+                  const lines = [];
+                  for (let i = item.fromIdx; i <= item.toIdx; i++) {
+                    lines.push(renderDiffLine(i));
+                  }
+                  return lines;
+                }
                 return (
                   <tr key={`sep-${hunkIdx}`}>
                     <td
                       colSpan={4}
                       className="bg-blue-50 text-center text-xs text-blue-500 py-1 select-none cursor-pointer hover:bg-blue-100 font-sans"
-                      onClick={() => setExpanded(true)}
+                      onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}
                     >
                       ⋯ {item.hiddenCount} unchanged line{item.hiddenCount !== 1 ? 's' : ''} hidden ⋯
                     </td>
