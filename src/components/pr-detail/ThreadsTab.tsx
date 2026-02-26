@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { useThreads } from '../../hooks';
 import type { ThreadStatus } from '../../types';
+import { isTextComment } from '../../utils';
 import { ThreadList } from './ThreadList';
 
 interface Props {
@@ -20,7 +21,7 @@ export function ThreadsTab({ threads }: Props) {
 
   // Only text threads (exclude system)
   const textThreads = threads.threads.filter((t) =>
-    t.comments.some((c) => c.commentType === 'text'),
+    t.comments.some((c) => isTextComment(c.commentType)),
   );
 
   const filtered =

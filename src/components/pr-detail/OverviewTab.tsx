@@ -1,6 +1,7 @@
 import type { PullRequest } from '../../types';
 import { VOTE_LABELS, VOTE_COLORS } from '../../types';
 import type { useThreads } from '../../hooks';
+import { isTextComment } from '../../utils';
 import { ThreadList } from './ThreadList';
 
 interface Props {
@@ -11,7 +12,7 @@ interface Props {
 export function OverviewTab({ pr, threads }: Props) {
   // Filter general (non-file-specific) threads
   const generalThreads = threads.threads.filter(
-    (t) => !t.threadContext?.filePath && t.comments.some((c) => c.commentType === 'text'),
+    (t) => !t.threadContext?.filePath && t.comments.some((c) => isTextComment(c.commentType)),
   );
 
   return (

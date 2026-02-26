@@ -35,3 +35,8 @@ export function changeTypeBadgeColor(ct: string): string {
     default: return 'bg-gray-100 text-gray-800';
   }
 }
+
+/** ADO returns commentType as 1 (text) or 2 (system), or as string 'text'/'system' */
+export function isTextComment(commentType: string | number): boolean {
+  return commentType === 'text' || commentType === 1;
+}

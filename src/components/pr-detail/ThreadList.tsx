@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
-import { formatDate } from '../../utils';
+import { formatDate, isTextComment } from '../../utils';
 
 interface Props {
   threads: PullRequestThread[];
@@ -40,7 +40,7 @@ function ThreadItem({
   const [showReply, setShowReply] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const textComments = thread.comments.filter((c) => c.commentType === 'text');
+  const textComments = thread.comments.filter((c) => isTextComment(c.commentType));
 
   const handleReply = async () => {
     if (!replyText.trim()) return;
