@@ -9,9 +9,10 @@ interface Props {
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   usersMap?: Record<string, string>;
+  onNavigateToFile?: (filePath: string, line?: number) => void;
 }
 
-export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, usersMap }: Props) {
+export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, usersMap, onNavigateToFile }: Props) {
   if (threads.length === 0) {
     return <p className="text-gray-400 text-sm italic">No threads yet.</p>;
   }
@@ -26,6 +27,7 @@ export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, use
           onSetStatus={onSetStatus}
           onDeleteComment={onDeleteComment}
           usersMap={usersMap}
+          onNavigateToFile={onNavigateToFile}
         />
       ))}
     </div>
@@ -38,12 +40,14 @@ function ThreadItem({
   onSetStatus,
   onDeleteComment,
   usersMap,
+  onNavigateToFile,
 }: {
   thread: PullRequestThread;
   onReply: Props['onReply'];
   onSetStatus: Props['onSetStatus'];
   onDeleteComment?: Props['onDeleteComment'];
   usersMap?: Record<string, string>;
+  onNavigateToFile?: (filePath: string, line?: number) => void;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -81,10 +85,20 @@ function ThreadItem({
             {thread.status}
           </span>
           {thread.threadContext?.filePath && (
-            <span className="text-gray-500 font-mono">
-              {thread.threadContext.filePath}
-              {thread.threadContext.rightFileStart && `:${thread.threadContext.rightFileStart.line}`}
-            </span>
+            onNavigateToFile ? (
+              <button
+                onClick={() => onNavigateToFile(thread.threadContext!.filePath, thread.threadContext!.rightFileStart?.line)}
+                className="text-blue-600 hover:underline font-mono"
+              >
+                {thread.threadContext.filePath}
+                {thread.threadContext.rightFileStart && `:${thread.threadContext.rightFileStart.line}`}
+              </button>
+            ) : (
+              <span className="text-gray-500 font-mono">
+                {thread.threadContext.filePath}
+                {thread.threadContext.rightFileStart && `:${thread.threadContext.rightFileStart.line}`}
+              </span>
+            )
           )}
         </div>
         <div className="flex gap-1">

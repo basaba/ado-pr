@@ -9,6 +9,7 @@ import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName, buildUsersMap } from '../utils';
 import { OverviewTab } from '../components/pr-detail/OverviewTab';
 import { FilesTab } from '../components/pr-detail/FilesTab';
+import type { FileNavigateTarget } from '../components/pr-detail/FilesTab';
 import { ThreadsTab } from '../components/pr-detail/ThreadsTab';
 
 type Tab = 'overview' | 'files' | 'threads';
@@ -21,6 +22,7 @@ export function PrDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [voting, setVoting] = useState(false);
+  const [fileNavTarget, setFileNavTarget] = useState<FileNavigateTarget | null>(null);
 
   const threads = useThreads(repoId!, Number(prId));
   const diff = useDiff(repoId!, Number(prId));
@@ -190,9 +192,20 @@ export function PrDetailPage() {
               repoId={repoId!}
               prId={Number(prId)}
               usersMap={usersMap}
+              navigateTarget={fileNavTarget}
+              onNavigateHandled={() => setFileNavTarget(null)}
             />
           )}
-          {activeTab === 'threads' && <ThreadsTab threads={threads} usersMap={usersMap} />}
+          {activeTab === 'threads' && (
+            <ThreadsTab
+              threads={threads}
+              usersMap={usersMap}
+              onNavigateToFile={(filePath, line) => {
+                setFileNavTarget({ filePath, line });
+                setActiveTab('files');
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

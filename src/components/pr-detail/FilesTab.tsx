@@ -1,9 +1,14 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { useDiff, useThreads } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
 import { DiffViewer } from '../diff-viewer/DiffViewer';
 import type { PullRequestThread, IterationChange } from '../../types';
+
+export interface FileNavigateTarget {
+  filePath: string;
+  line?: number;
+}
 
 interface Props {
   diff: ReturnType<typeof useDiff>;
@@ -11,6 +16,8 @@ interface Props {
   repoId: string;
   prId: number;
   usersMap?: Record<string, string>;
+  navigateTarget?: FileNavigateTarget | null;
+  onNavigateHandled?: () => void;
 }
 
 interface TreeNode {
@@ -68,7 +75,7 @@ function buildFileTree(
   return collapse(root);
 }
 
-export function FilesTab({ diff, threads, usersMap }: Props) {
+export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled }: Props) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
@@ -76,6 +83,25 @@ export function FilesTab({ diff, threads, usersMap }: Props) {
   } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+  const [scrollToLine, setScrollToLine] = useState<number | undefined>();
+  const diffContainerRef = useRef<HTMLDivElement>(null);
+
+  // Handle external navigation (e.g. from Threads tab)
+  useEffect(() => {
+    if (!navigateTarget) return;
+    const { filePath, line } = navigateTarget;
+    setScrollToLine(line);
+    // Open the file
+    setSelectedFile(filePath);
+    setFileContent(null);
+    setLoadingFile(true);
+    diff.fetchFilePair(filePath)
+      .then((content) => setFileContent(content))
+      .catch(() => setFileContent({ oldContent: '', newContent: '' }))
+      .finally(() => setLoadingFile(false));
+    onNavigateHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigateTarget]);
 
   // Group inline threads by file
   const threadsByFile: Record<string, PullRequestThread[]> = {};
@@ -174,6 +200,8 @@ export function FilesTab({ diff, threads, usersMap }: Props) {
                 newContent={fileContent.newContent}
                 filePath={selectedFile}
                 threads={fileThreads}
+                scrollToLine={scrollToLine}
+                onScrollHandled={() => setScrollToLine(undefined)}
                 onAddComment={async (content, line) => {
                   await threads.addThread(content, {
                     filePath: selectedFile,

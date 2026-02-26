@@ -13,6 +13,8 @@ interface Props {
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   usersMap?: Record<string, string>;
+  scrollToLine?: number;
+  onScrollHandled?: () => void;
 }
 
 interface DiffLine {
@@ -107,6 +109,8 @@ export function DiffViewer({
   onSetStatus,
   onDeleteComment,
   usersMap,
+  scrollToLine,
+  onScrollHandled,
 }: Props) {
   const [commentLine, setCommentLine] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
@@ -153,6 +157,22 @@ export function DiffViewer({
   );
 
   const hasCollapsed = hunks.some((h) => h.kind === 'collapsed');
+
+  // Scroll to a specific line when requested
+  useEffect(() => {
+    if (scrollToLine == null) return;
+    // Small delay to let DOM render
+    const timer = setTimeout(() => {
+      const el = scrollContainerRef.current?.querySelector(`[data-line="${scrollToLine}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('bg-yellow-200');
+        setTimeout(() => el.classList.remove('bg-yellow-200'), 2000);
+      }
+      onScrollHandled?.();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [scrollToLine, onScrollHandled]);
 
   const handleSubmitComment = async () => {
     if (!commentText.trim() || commentLine == null) return;
@@ -304,7 +324,7 @@ function DiffLineRow({
 
   return (
     <>
-      <tr className={`${lineColors[line.type]} hover:brightness-95`}>
+      <tr className={`${lineColors[line.type]} hover:brightness-95`} data-line={line.newLineNum ?? undefined}>
         <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.oldLineNum ?? ''}</td>
         <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.newLineNum ?? ''}</td>
         <td
