@@ -8,23 +8,37 @@ import { useAuth } from '../context';
 import type { PrSearchFilters } from '../api/pullRequests';
 
 type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active';
+type DateRange = '30' | '60' | '90' | '180' | '365' | 'all';
+
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+}
 
 export function PrListPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
   const [preset, setPreset] = useState<PresetFilter>('assigned-to-me');
+  const [dateRange, setDateRange] = useState<DateRange>('30');
 
   const filters = useMemo<PrSearchFilters>(() => {
-    switch (preset) {
-      case 'assigned-to-me':
-        return { reviewerId: profile?.id, status: 'active' };
-      case 'created-by-me':
-        return { creatorId: profile?.id, status: 'active' };
-      case 'all-active':
-        return { status: 'active' };
+    const base: PrSearchFilters = (() => {
+      switch (preset) {
+        case 'assigned-to-me':
+          return { reviewerId: profile?.id, status: 'active' };
+        case 'created-by-me':
+          return { creatorId: profile?.id, status: 'active' };
+        case 'all-active':
+          return { status: 'active' };
+      }
+    })();
+    if (dateRange !== 'all') {
+      base.minTime = daysAgoISO(Number(dateRange));
     }
-  }, [preset, profile?.id]);
+    return base;
+  }, [preset, profile?.id, dateRange]);
 
   const { pullRequests, loading, error, refresh } = usePullRequests(filters);
 
@@ -59,6 +73,19 @@ export function PrListPage() {
               {p.label}
             </button>
           ))}
+          <span className="mx-2 text-gray-300">|</span>
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as DateRange)}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 border-none cursor-pointer hover:bg-gray-200 transition-colors"
+          >
+            <option value="30">Last 30 days</option>
+            <option value="60">Last 60 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="180">Last 6 months</option>
+            <option value="365">Last year</option>
+            <option value="all">All time</option>
+          </select>
         </div>
 
       </div>

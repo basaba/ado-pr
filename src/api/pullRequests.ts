@@ -13,6 +13,7 @@ export interface PrSearchFilters {
   reviewerId?: string;
   creatorId?: string;
   status?: string; // active | completed | abandoned | all
+  minTime?: string; // ISO date string
 }
 
 export async function getMyProfile(): Promise<IdentityRef> {
@@ -37,6 +38,7 @@ export async function searchPullRequests(filters: PrSearchFilters = {}): Promise
   };
   if (filters.reviewerId) params['searchCriteria.reviewerId'] = filters.reviewerId;
   if (filters.creatorId) params['searchCriteria.creatorId'] = filters.creatorId;
+  if (filters.minTime) params['searchCriteria.minTime'] = filters.minTime;
   const data = await adoClient.get<AdoListResponse<PullRequest>>(
     '/git/pullrequests',
     params,
