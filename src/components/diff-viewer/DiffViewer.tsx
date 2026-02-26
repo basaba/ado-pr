@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
 import { MarkdownContent } from '../common';
@@ -110,6 +110,24 @@ export function DiffViewer({
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const updateWidth = useCallback(() => {
+    if (scrollContainerRef.current) {
+      setContainerWidth(scrollContainerRef.current.clientWidth);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    if (scrollContainerRef.current) ro.observe(scrollContainerRef.current);
+    return () => ro.disconnect();
+  }, [updateWidth]);
+
+  // Width for comment/thread overlays: container width minus gutter columns (~6rem)
+  const commentBoxWidth = containerWidth > 0 ? `${containerWidth - 10}px` : '100%';
 
   const diffLines = useMemo(() => computeDiffLines(oldContent, newContent), [oldContent, newContent]);
 
@@ -191,12 +209,13 @@ export function DiffViewer({
         onReply={onReply}
         onSetStatus={onSetStatus}
         onDeleteComment={onDeleteComment}
+        commentBoxWidth={commentBoxWidth}
       />
     );
   };
 
   return (
-    <div className="overflow-x-auto text-xs font-mono">
+    <div className="overflow-x-auto text-xs font-mono relative" ref={scrollContainerRef}>
       {hasCollapsed && (
         <div className="flex justify-end px-3 py-1.5 bg-gray-50 border-b border-gray-200 font-sans">
           <button
@@ -249,6 +268,7 @@ function DiffLineRow({
   line, lineColors, lineTextColors, gutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment,
+  commentBoxWidth,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -265,6 +285,7 @@ function DiffLineRow({
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
+  commentBoxWidth: string;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
@@ -288,32 +309,36 @@ function DiffLineRow({
 
       {lineThreads.map((thread) => (
         <tr key={`thread-${thread.id}`}>
-          <td colSpan={4} className="bg-blue-50 border-l-4 border-blue-400 px-6 py-2">
-            <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} />
+          <td colSpan={4} className="bg-blue-50 border-l-4 border-blue-400 p-0">
+            <div className="px-6 py-2" style={{ width: commentBoxWidth, maxWidth: commentBoxWidth }}>
+              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} />
+            </div>
           </td>
         </tr>
       ))}
 
       {isCommentOpen && (
         <tr>
-          <td colSpan={4} className="bg-yellow-50 border-l-4 border-yellow-400 px-6 py-3">
-            <textarea
-              value={commentText}
-              onChange={(e) => onCommentTextChange(e.target.value)}
-              rows={3}
-              placeholder="Write your comment..."
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-2 justify-end">
-              <button onClick={onCancelComment} className="text-xs text-gray-500 hover:underline font-sans">Cancel</button>
-              <button
-                onClick={onSubmitComment}
-                disabled={sending || !commentText.trim()}
-                className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 font-sans"
-              >
-                {sending ? 'Posting...' : 'Add Comment'}
-              </button>
+          <td colSpan={4} className="bg-yellow-50 border-l-4 border-yellow-400 p-0">
+            <div className="px-6 py-3" style={{ width: commentBoxWidth, maxWidth: commentBoxWidth }}>
+              <textarea
+                value={commentText}
+                onChange={(e) => onCommentTextChange(e.target.value)}
+                rows={3}
+                placeholder="Write your comment..."
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+              <div className="flex gap-2 mt-2 justify-end">
+                <button onClick={onCancelComment} className="text-xs text-gray-500 hover:underline font-sans">Cancel</button>
+                <button
+                  onClick={onSubmitComment}
+                  disabled={sending || !commentText.trim()}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 font-sans"
+                >
+                  {sending ? 'Posting...' : 'Add Comment'}
+                </button>
+              </div>
             </div>
           </td>
         </tr>
