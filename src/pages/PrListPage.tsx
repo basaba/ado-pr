@@ -14,7 +14,7 @@ export function PrListPage() {
   if (error) return <ErrorBanner message={error} />;
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">
           Pull Requests for Review

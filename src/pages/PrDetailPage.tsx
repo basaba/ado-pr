@@ -73,7 +73,7 @@ export function PrDetailPage() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       {/* Header */}
       <div className="mb-4">
         <Link to="/" className="text-sm text-blue-600 hover:underline">
@@ -174,7 +174,7 @@ export function PrDetailPage() {
           ))}
         </div>
 
-        <div className="p-6">
+        <div className={activeTab === 'files' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
             <OverviewTab pr={pr} threads={threads} />
           )}

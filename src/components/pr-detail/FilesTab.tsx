@@ -129,9 +129,9 @@ export function FilesTab({ diff, threads }: Props) {
   const fileThreads = selectedFile ? threadsByFile[selectedFile] || [] : [];
 
   return (
-    <div className="flex gap-0 -m-6">
+    <div className="flex gap-0">
       {/* File tree sidebar */}
-      <div className="w-72 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+      <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto" style={{ height: 'calc(100vh - 220px)' }}>
         <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200 sticky top-0 bg-gray-50 z-10">
           {diff.changes.length} changed file{diff.changes.length !== 1 ? 's' : ''}
         </div>
@@ -151,7 +151,7 @@ export function FilesTab({ diff, threads }: Props) {
       </div>
 
       {/* Diff viewer area */}
-      <div className="flex-1 min-w-0 overflow-x-auto">
+      <div className="flex-1 min-w-0 overflow-x-auto" style={{ height: 'calc(100vh - 220px)', overflowY: 'auto' }}>
         {selectedFile && selectedChange ? (
           <div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
