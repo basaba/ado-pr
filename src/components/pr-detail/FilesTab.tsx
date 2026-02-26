@@ -10,6 +10,7 @@ interface Props {
   threads: ReturnType<typeof useThreads>;
   repoId: string;
   prId: number;
+  usersMap?: Record<string, string>;
 }
 
 interface TreeNode {
@@ -67,7 +68,7 @@ function buildFileTree(
   return collapse(root);
 }
 
-export function FilesTab({ diff, threads }: Props) {
+export function FilesTab({ diff, threads, usersMap }: Props) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
@@ -183,6 +184,7 @@ export function FilesTab({ diff, threads }: Props) {
                 onReply={threads.reply}
                 onSetStatus={threads.setStatus}
                 onDeleteComment={threads.removeComment}
+                usersMap={usersMap}
               />
             ) : null}
           </div>

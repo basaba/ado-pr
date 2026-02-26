@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getPullRequest, votePullRequest } from '../api';
 import { useAuth } from '../context';
@@ -6,7 +6,7 @@ import { useThreads, useDiff } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
 import { Spinner, ErrorBanner, Button, Badge } from '../components/common';
 import { VOTE_LABELS, VOTE_COLORS } from '../types';
-import { formatDate, branchName } from '../utils';
+import { formatDate, branchName, buildUsersMap } from '../utils';
 import { OverviewTab } from '../components/pr-detail/OverviewTab';
 import { FilesTab } from '../components/pr-detail/FilesTab';
 import { ThreadsTab } from '../components/pr-detail/ThreadsTab';
@@ -33,6 +33,11 @@ export function PrDetailPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [repoId, prId]);
+
+  const usersMap = useMemo(
+    () => buildUsersMap(threads.threads, pr?.reviewers, pr?.createdBy),
+    [threads.threads, pr],
+  );
 
   if (loading) return <Spinner className="mt-20" />;
   if (error || !pr) return <ErrorBanner message={error || 'PR not found'} />;
@@ -176,7 +181,7 @@ export function PrDetailPage() {
 
         <div className={activeTab === 'files' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
-            <OverviewTab pr={pr} threads={threads} />
+            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} />
           )}
           {activeTab === 'files' && (
             <FilesTab
@@ -184,9 +189,10 @@ export function PrDetailPage() {
               threads={threads}
               repoId={repoId!}
               prId={Number(prId)}
+              usersMap={usersMap}
             />
           )}
-          {activeTab === 'threads' && <ThreadsTab threads={threads} />}
+          {activeTab === 'threads' && <ThreadsTab threads={threads} usersMap={usersMap} />}
         </div>
       </div>
     </div>

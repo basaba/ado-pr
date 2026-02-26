@@ -8,9 +8,10 @@ interface Props {
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
+  usersMap?: Record<string, string>;
 }
 
-export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment }: Props) {
+export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, usersMap }: Props) {
   if (threads.length === 0) {
     return <p className="text-gray-400 text-sm italic">No threads yet.</p>;
   }
@@ -24,6 +25,7 @@ export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment }: P
           onReply={onReply}
           onSetStatus={onSetStatus}
           onDeleteComment={onDeleteComment}
+          usersMap={usersMap}
         />
       ))}
     </div>
@@ -35,11 +37,13 @@ function ThreadItem({
   onReply,
   onSetStatus,
   onDeleteComment,
+  usersMap,
 }: {
   thread: PullRequestThread;
   onReply: Props['onReply'];
   onSetStatus: Props['onSetStatus'];
   onDeleteComment?: Props['onDeleteComment'];
+  usersMap?: Record<string, string>;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -132,7 +136,7 @@ function ThreadItem({
                 </button>
               )}
             </div>
-            <MarkdownContent content={comment.content} className="text-sm text-gray-800" />
+            <MarkdownContent content={comment.content} className="text-sm text-gray-800" usersMap={usersMap} />
           </div>
         ))}
       </div>

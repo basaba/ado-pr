@@ -12,6 +12,7 @@ interface Props {
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
+  usersMap?: Record<string, string>;
 }
 
 interface DiffLine {
@@ -105,6 +106,7 @@ export function DiffViewer({
   onReply,
   onSetStatus,
   onDeleteComment,
+  usersMap,
 }: Props) {
   const [commentLine, setCommentLine] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
@@ -210,6 +212,7 @@ export function DiffViewer({
         onSetStatus={onSetStatus}
         onDeleteComment={onDeleteComment}
         commentBoxWidth={commentBoxWidth}
+        usersMap={usersMap}
       />
     );
   };
@@ -255,7 +258,7 @@ export function DiffViewer({
           </p>
           {unmatchedThreads.map((thread) => (
             <div key={thread.id} className="mb-3">
-              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} />
+              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} />
             </div>
           ))}
         </div>
@@ -268,7 +271,7 @@ function DiffLineRow({
   line, lineColors, lineTextColors, gutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment,
-  commentBoxWidth,
+  commentBoxWidth, usersMap,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -286,6 +289,7 @@ function DiffLineRow({
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   commentBoxWidth: string;
+  usersMap?: Record<string, string>;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
@@ -311,7 +315,7 @@ function DiffLineRow({
         <tr key={`thread-${thread.id}`}>
           <td colSpan={4} className="bg-blue-50 border-l-4 border-blue-400 p-0">
             <div className="px-6 py-2" style={{ width: commentBoxWidth, maxWidth: commentBoxWidth }}>
-              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} />
+              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} />
             </div>
           </td>
         </tr>
@@ -348,12 +352,13 @@ function DiffLineRow({
 }
 
 function InlineThread({
-  thread, onReply, onSetStatus, onDeleteComment,
+  thread, onReply, onSetStatus, onDeleteComment, usersMap,
 }: {
   thread: PullRequestThread;
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
+  usersMap?: Record<string, string>;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -399,7 +404,7 @@ function InlineThread({
               </button>
             )}
           </div>
-          <MarkdownContent content={c.content} className="text-gray-800 text-sm" />
+          <MarkdownContent content={c.content} className="text-gray-800 text-sm" usersMap={usersMap} />
         </div>
       ))}
       {showReply ? (

@@ -8,9 +8,10 @@ import { ThreadList } from './ThreadList';
 interface Props {
   pr: PullRequest;
   threads: ReturnType<typeof useThreads>;
+  usersMap: Record<string, string>;
 }
 
-export function OverviewTab({ pr, threads }: Props) {
+export function OverviewTab({ pr, threads, usersMap }: Props) {
   // Filter general (non-file-specific) threads
   const generalThreads = threads.threads.filter(
     (t) => !t.threadContext?.filePath && t.comments.some((c) => isTextComment(c.commentType)),
@@ -23,7 +24,7 @@ export function OverviewTab({ pr, threads }: Props) {
         <h2 className="text-sm font-semibold text-gray-700 mb-2">Description</h2>
         {pr.description ? (
           <div className="bg-gray-50 rounded p-4">
-            <MarkdownContent content={pr.description} className="text-gray-700" />
+            <MarkdownContent content={pr.description} className="text-gray-700" usersMap={usersMap} />
           </div>
         ) : (
           <p className="text-gray-400 text-sm italic">No description provided.</p>
@@ -58,6 +59,7 @@ export function OverviewTab({ pr, threads }: Props) {
           onReply={threads.reply}
           onSetStatus={threads.setStatus}
           onDeleteComment={threads.removeComment}
+          usersMap={usersMap}
         />
         <NewCommentBox onSubmit={(content) => threads.addThread(content)} />
       </section>

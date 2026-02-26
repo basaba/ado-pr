@@ -6,6 +6,7 @@ import { ThreadList } from './ThreadList';
 
 interface Props {
   threads: ReturnType<typeof useThreads>;
+  usersMap?: Record<string, string>;
 }
 
 const STATUS_FILTERS: { label: string; value: ThreadStatus | 'all' }[] = [
@@ -16,7 +17,7 @@ const STATUS_FILTERS: { label: string; value: ThreadStatus | 'all' }[] = [
   { label: 'Closed', value: 'closed' },
 ];
 
-export function ThreadsTab({ threads }: Props) {
+export function ThreadsTab({ threads, usersMap }: Props) {
   const [filter, setFilter] = useState<ThreadStatus | 'all'>('all');
 
   // Only text threads (exclude system)
@@ -57,6 +58,7 @@ export function ThreadsTab({ threads }: Props) {
         onReply={threads.reply}
         onSetStatus={threads.setStatus}
         onDeleteComment={threads.removeComment}
+        usersMap={usersMap}
       />
     </div>
   );

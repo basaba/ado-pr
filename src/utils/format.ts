@@ -40,3 +40,25 @@ export function changeTypeBadgeColor(ct: string): string {
 export function isTextComment(commentType: string | number): boolean {
   return commentType === 'text' || commentType === 1;
 }
+
+/** Replace ADO @<GUID> mentions with display names using a known users map */
+export function preprocessMentions(content: string, usersMap: Record<string, string>): string {
+  // ADO mention format: @<GUID>
+  return content.replace(/@<([0-9a-fA-F-]{36})>/g, (_match, guid: string) => {
+    const name = usersMap[guid.toLowerCase()];
+    return name ? `**@${name}**` : `@\`${guid}\``;
+  });
+}
+
+/** Build a GUID→displayName map from threads and PR reviewers */
+export function buildUsersMap(
+  threads: { comments: { author: { id: string; displayName: string } }[] }[],
+  reviewers?: { id: string; displayName: string }[],
+  createdBy?: { id: string; displayName: string },
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  if (createdBy) map[createdBy.id.toLowerCase()] = createdBy.displayName;
+  reviewers?.forEach((r) => { map[r.id.toLowerCase()] = r.displayName; });
+  threads.forEach((t) => t.comments.forEach((c) => { map[c.author.id.toLowerCase()] = c.author.displayName; }));
+  return map;
+}
