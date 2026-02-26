@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { useDiff, useThreads } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
@@ -84,7 +84,6 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [scrollToLine, setScrollToLine] = useState<number | undefined>();
-  const diffContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle external navigation (e.g. from Threads tab)
   useEffect(() => {
