@@ -182,6 +182,7 @@ export function FilesTab({ diff, threads }: Props) {
                 }}
                 onReply={threads.reply}
                 onSetStatus={threads.setStatus}
+                onDeleteComment={threads.removeComment}
               />
             ) : null}
           </div>

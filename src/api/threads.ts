@@ -55,3 +55,14 @@ export async function updateThreadStatus(
     { status },
   );
 }
+
+export async function deleteComment(
+  repoId: string,
+  prId: number,
+  threadId: number,
+  commentId: number,
+): Promise<void> {
+  await adoClient.delete(
+    `${basePath(repoId, prId)}/${threadId}/comments/${commentId}`,
+  );
+}

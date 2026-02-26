@@ -11,6 +11,7 @@ interface Props {
   onAddComment: (content: string, line: number) => Promise<void>;
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
+  onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
 }
 
 interface DiffLine {
@@ -103,6 +104,7 @@ export function DiffViewer({
   onAddComment,
   onReply,
   onSetStatus,
+  onDeleteComment,
 }: Props) {
   const [commentLine, setCommentLine] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
@@ -188,6 +190,7 @@ export function DiffViewer({
         onCancelComment={() => { setCommentLine(null); setCommentText(''); }}
         onReply={onReply}
         onSetStatus={onSetStatus}
+        onDeleteComment={onDeleteComment}
       />
     );
   };
@@ -233,7 +236,7 @@ export function DiffViewer({
           </p>
           {unmatchedThreads.map((thread) => (
             <div key={thread.id} className="mb-3">
-              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} />
+              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} />
             </div>
           ))}
         </div>
@@ -245,7 +248,7 @@ export function DiffViewer({
 function DiffLineRow({
   line, lineColors, lineTextColors, gutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
-  sending, onSubmitComment, onCancelComment, onReply, onSetStatus,
+  sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -261,6 +264,7 @@ function DiffLineRow({
   onCancelComment: () => void;
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
+  onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
@@ -285,7 +289,7 @@ function DiffLineRow({
       {lineThreads.map((thread) => (
         <tr key={`thread-${thread.id}`}>
           <td colSpan={4} className="bg-blue-50 border-l-4 border-blue-400 px-6 py-2">
-            <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} />
+            <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} />
           </td>
         </tr>
       ))}
@@ -319,11 +323,12 @@ function DiffLineRow({
 }
 
 function InlineThread({
-  thread, onReply, onSetStatus,
+  thread, onReply, onSetStatus, onDeleteComment,
 }: {
   thread: PullRequestThread;
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
+  onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -357,8 +362,18 @@ function InlineThread({
       </div>
       {textComments.map((c) => (
         <div key={c.id} className="pl-2 border-l-2 border-gray-200">
-          <span className="font-medium text-gray-700 text-xs">{c.author.displayName}</span>
-          <span className="text-gray-400 text-xs ml-2">{formatDate(c.publishedDate)}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-700 text-xs">{c.author.displayName}</span>
+            <span className="text-gray-400 text-xs">{formatDate(c.publishedDate)}</span>
+            {onDeleteComment && (
+              <button
+                onClick={() => { if (confirm('Delete this comment?')) onDeleteComment(thread.id, c.id); }}
+                className="text-red-400 hover:text-red-600 text-xs hover:underline ml-auto"
+              >
+                Delete
+              </button>
+            )}
+          </div>
           <MarkdownContent content={c.content} className="text-gray-800 text-sm" />
         </div>
       ))}

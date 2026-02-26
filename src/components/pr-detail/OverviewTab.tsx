@@ -57,6 +57,7 @@ export function OverviewTab({ pr, threads }: Props) {
           threads={generalThreads}
           onReply={threads.reply}
           onSetStatus={threads.setStatus}
+          onDeleteComment={threads.removeComment}
         />
         <NewCommentBox onSubmit={(content) => threads.addThread(content)} />
       </section>

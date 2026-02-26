@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { PullRequestThread } from '../types';
-import { listThreads, createThread, replyToThread, updateThreadStatus } from '../api';
+import { listThreads, createThread, replyToThread, updateThreadStatus, deleteComment } from '../api';
 import type { ThreadStatus } from '../types';
 
 export function useThreads(repoId: string, prId: number) {
@@ -57,5 +57,19 @@ export function useThreads(repoId: string, prId: number) {
     [repoId, prId],
   );
 
-  return { threads, loading, error, refresh, addThread, reply, setStatus };
+  const removeComment = useCallback(
+    async (threadId: number, commentId: number) => {
+      await deleteComment(repoId, prId, threadId, commentId);
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.id === threadId
+            ? { ...t, comments: t.comments.filter((c) => c.id !== commentId) }
+            : t,
+        ),
+      );
+    },
+    [repoId, prId],
+  );
+
+  return { threads, loading, error, refresh, addThread, reply, setStatus, removeComment };
 }

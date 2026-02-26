@@ -56,6 +56,7 @@ export function ThreadsTab({ threads }: Props) {
         threads={filtered}
         onReply={threads.reply}
         onSetStatus={threads.setStatus}
+        onDeleteComment={threads.removeComment}
       />
     </div>
   );

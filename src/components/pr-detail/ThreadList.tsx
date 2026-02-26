@@ -7,9 +7,10 @@ interface Props {
   threads: PullRequestThread[];
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
+  onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
 }
 
-export function ThreadList({ threads, onReply, onSetStatus }: Props) {
+export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment }: Props) {
   if (threads.length === 0) {
     return <p className="text-gray-400 text-sm italic">No threads yet.</p>;
   }
@@ -22,6 +23,7 @@ export function ThreadList({ threads, onReply, onSetStatus }: Props) {
           thread={thread}
           onReply={onReply}
           onSetStatus={onSetStatus}
+          onDeleteComment={onDeleteComment}
         />
       ))}
     </div>
@@ -32,10 +34,12 @@ function ThreadItem({
   thread,
   onReply,
   onSetStatus,
+  onDeleteComment,
 }: {
   thread: PullRequestThread;
   onReply: Props['onReply'];
   onSetStatus: Props['onSetStatus'];
+  onDeleteComment?: Props['onDeleteComment'];
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -115,6 +119,18 @@ function ThreadItem({
             <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
               <span className="font-medium text-gray-700">{comment.author.displayName}</span>
               <span>{formatDate(comment.publishedDate)}</span>
+              {onDeleteComment && (
+                <button
+                  onClick={() => {
+                    if (confirm('Delete this comment?')) {
+                      onDeleteComment(thread.id, comment.id);
+                    }
+                  }}
+                  className="ml-auto text-red-400 hover:text-red-600 hover:underline"
+                >
+                  Delete
+                </button>
+              )}
             </div>
             <MarkdownContent content={comment.content} className="text-sm text-gray-800" />
           </div>

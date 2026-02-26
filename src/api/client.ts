@@ -112,6 +112,12 @@ class AdoClient {
     return this.request<T>('PUT', url.toString(), body);
   }
 
+  async delete(path: string): Promise<void> {
+    const url = new URL(`${window.location.origin}${this.baseUrl}${path}`);
+    url.searchParams.set('api-version', '7.1');
+    await this.request<void>('DELETE', url.toString());
+  }
+
   async getText(fullUrl: string): Promise<string> {
     return this.request<string>('GET', fullUrl);
   }
