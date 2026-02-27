@@ -36,8 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(saved) as AdoConfig;
         adoClient.configure(parsed);
         setConfig(parsed);
-        getMyProfile()
-          .then(setProfile)
+        Promise.all([getMyProfile(), adoClient.resolveProjectId()])
+          .then(([p]) => setProfile(p))
           .catch(() => {
             localStorage.removeItem(STORAGE_KEY);
           })
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       adoClient.configure(cfg);
-      const p = await getMyProfile();
+      const [p] = await Promise.all([getMyProfile(), adoClient.resolveProjectId()]);
       setProfile(p);
       setConfig(cfg);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));

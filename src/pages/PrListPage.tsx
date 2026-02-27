@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePullRequests } from '../hooks';
 import { Spinner, ErrorBanner, Badge } from '../components/common';
@@ -6,6 +6,7 @@ import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName } from '../utils';
 import { useAuth } from '../context';
 import type { PrSearchFilters } from '../api/pullRequests';
+import { getRepositoryByName } from '../api/pullRequests';
 
 type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active';
 type DateRange = '30' | '60' | '90' | '180' | '365' | 'all';
@@ -16,12 +17,60 @@ function daysAgoISO(days: number): string {
   return d.toISOString();
 }
 
+const REPO_STORAGE_KEY = 'pr-filter-repo';
+const REPO_NAME_STORAGE_KEY = 'pr-filter-repo-name';
+
 export function PrListPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
   const [preset, setPreset] = useState<PresetFilter>('assigned-to-me');
   const [dateRange, setDateRange] = useState<DateRange>('30');
+  const [repoId, setRepoId] = useState<string>(
+    () => localStorage.getItem(REPO_STORAGE_KEY) ?? '',
+  );
+  const [repoName, setRepoName] = useState<string>(
+    () => localStorage.getItem(REPO_NAME_STORAGE_KEY) ?? '',
+  );
+  const [repoLoading, setRepoLoading] = useState(false);
+  const [repoError, setRepoError] = useState('');
+
+  const resolveRepo = useCallback(async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setRepoId('');
+      setRepoError('');
+      localStorage.removeItem(REPO_STORAGE_KEY);
+      localStorage.removeItem(REPO_NAME_STORAGE_KEY);
+      return;
+    }
+    setRepoLoading(true);
+    setRepoError('');
+    try {
+      const repo = await getRepositoryByName(trimmed);
+      if (repo) {
+        setRepoId(repo.id);
+        setRepoName(repo.name);
+        localStorage.setItem(REPO_STORAGE_KEY, repo.id);
+        localStorage.setItem(REPO_NAME_STORAGE_KEY, repo.name);
+      } else {
+        setRepoId('');
+        setRepoError('Repository not found');
+        localStorage.removeItem(REPO_STORAGE_KEY);
+        localStorage.removeItem(REPO_NAME_STORAGE_KEY);
+      }
+    } catch {
+      setRepoError('Failed to look up repository');
+    }
+    setRepoLoading(false);
+  }, []);
+
+  const handleRepoKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') resolveRepo(repoName);
+    },
+    [resolveRepo, repoName],
+  );
 
   const filters = useMemo<PrSearchFilters>(() => {
     const base: PrSearchFilters = (() => {
@@ -37,8 +86,11 @@ export function PrListPage() {
     if (dateRange !== 'all') {
       base.minTime = daysAgoISO(Number(dateRange));
     }
+    if (repoId) {
+      base.repositoryId = repoId;
+    }
     return base;
-  }, [preset, profile?.id, dateRange]);
+  }, [preset, profile?.id, dateRange, repoId]);
 
   const { pullRequests, loading, error, refresh } = usePullRequests(filters);
 
@@ -86,6 +138,29 @@ export function PrListPage() {
             <option value="365">Last year</option>
             <option value="all">All time</option>
           </select>
+          <span className="mx-2 text-gray-300">|</span>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500">Repo:</span>
+            <input
+              type="text"
+              value={repoName}
+              placeholder="Type repository name…"
+              onChange={(e) => { setRepoName(e.target.value); if (!e.target.value) resolveRepo(''); }}
+              onBlur={() => resolveRepo(repoName)}
+              onKeyDown={handleRepoKeyDown}
+              className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-56"
+              disabled={repoLoading}
+            />
+            {repoLoading && <span className="text-gray-400 text-xs animate-pulse">…</span>}
+            {repoError && <span className="text-red-500 text-xs">{repoError}</span>}
+            {!repoLoading && repoId && (
+              <button
+                onClick={() => { setRepoName(''); resolveRepo(''); }}
+                className="text-gray-400 hover:text-gray-600 text-sm"
+                title="Clear"
+              >✕</button>
+            )}
+          </div>
         </div>
 
       </div>

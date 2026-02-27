@@ -9,6 +9,7 @@ interface AutocompleteProps {
   items: AutocompleteItem[];
   value: string; // selected item id
   onChange: (id: string) => void;
+  onQueryChange?: (query: string) => void;
   placeholder?: string;
   loading?: boolean;
   onFocus?: () => void;
@@ -16,7 +17,7 @@ interface AutocompleteProps {
   noResultsHint?: string;
 }
 
-export function Autocomplete({ items, value, onChange, placeholder = 'Search…', loading = false, onFocus, onNoResults, noResultsHint }: AutocompleteProps) {
+export function Autocomplete({ items, value, onChange, onQueryChange, placeholder = 'Search…', loading = false, onFocus, onNoResults, noResultsHint }: AutocompleteProps) {
   const selected = items.find((i) => i.id === value);
   const [query, setQuery] = useState(selected?.label ?? '');
   const [open, setOpen] = useState(false);
@@ -69,6 +70,7 @@ export function Autocomplete({ items, value, onChange, placeholder = 'Search…'
           onChange={(e) => {
             setQuery(e.target.value);
             setOpen(true);
+            onQueryChange?.(e.target.value);
             if (!e.target.value) onChange('');
           }}
           onFocus={() => { setOpen(true); onFocus?.(); }}

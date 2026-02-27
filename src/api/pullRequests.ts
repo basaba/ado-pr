@@ -2,6 +2,7 @@ import { adoClient } from './client';
 import type {
   AdoListResponse,
   PullRequest,
+  GitRepository,
   IdentityRef,
   VoteValue,
 } from '../types';
@@ -14,6 +15,7 @@ export interface PrSearchFilters {
   creatorId?: string;
   status?: string; // active | completed | abandoned | all
   minTime?: string; // ISO date string
+  repositoryId?: string;
 }
 
 export async function getMyProfile(): Promise<IdentityRef> {
@@ -39,10 +41,10 @@ export async function searchPullRequests(filters: PrSearchFilters = {}): Promise
   if (filters.reviewerId) params['searchCriteria.reviewerId'] = filters.reviewerId;
   if (filters.creatorId) params['searchCriteria.creatorId'] = filters.creatorId;
   if (filters.minTime) params['searchCriteria.minTime'] = filters.minTime;
-  const data = await adoClient.get<AdoListResponse<PullRequest>>(
-    '/git/pullrequests',
-    params,
-  );
+  const path = filters.repositoryId
+    ? `/git/repositories/${filters.repositoryId}/pullrequests`
+    : '/git/pullrequests';
+  const data = await adoClient.get<AdoListResponse<PullRequest>>(path, params);
   return data.value;
 }
 
@@ -123,4 +125,46 @@ export async function votePullRequest(
   await adoClient.put(`${prBasePath(repoId, prId)}/reviewers/${reviewerId}`, {
     vote,
   });
+}
+
+export interface RepoPagedResult {
+  repositories: GitRepository[];
+  hasMore: boolean;
+}
+
+/** Search repositories using the paginated org-level API */
+export async function searchRepositoriesPaged(
+  query: string,
+  top = 20,
+  continuationToken?: string,
+): Promise<RepoPagedResult> {
+  const params: Record<string, string> = {
+    'searchCriteria.searchText': query,
+    '$top': String(top),
+  };
+  if (continuationToken) {
+    params['continuationToken'] = continuationToken;
+  }
+  const data = await adoClient.getOrgParams<AdoListResponse<GitRepository>>(
+    `/git/${adoClient.projectId}/repositoriesPaged`,
+    params,
+    '7.2-preview.1',
+  );
+  return {
+    repositories: data.value ?? [],
+    hasMore: (data.value?.length ?? 0) >= top,
+  };
+}
+
+/** Look up a repository by name using GET /git/repositories/{name} */
+export async function getRepositoryByName(
+  name: string,
+): Promise<GitRepository | undefined> {
+  try {
+    return await adoClient.get<GitRepository>(
+      `/git/repositories/${encodeURIComponent(name.trim())}`,
+    );
+  } catch {
+    return undefined;
+  }
 }
