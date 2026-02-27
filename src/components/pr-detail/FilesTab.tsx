@@ -85,6 +85,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [scrollToLine, setScrollToLine] = useState<number | undefined>();
+  const [hiddenThreadIds, setHiddenThreadIds] = useState<Set<number>>(new Set());
 
   // Handle external navigation (e.g. from Threads tab)
   useEffect(() => {
@@ -214,6 +215,13 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                 onDeleteComment={threads.removeComment}
                 usersMap={usersMap}
                 currentUserId={currentUserId}
+                hiddenThreadIds={hiddenThreadIds}
+                onToggleHideThread={(threadId) => setHiddenThreadIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(threadId)) next.delete(threadId);
+                  else next.add(threadId);
+                  return next;
+                })}
               />
             ) : null}
           </div>
