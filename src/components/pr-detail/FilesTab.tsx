@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { useDiff, useThreads } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
@@ -86,6 +86,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [scrollToLine, setScrollToLine] = useState<number | undefined>();
   const [hiddenThreadIds, setHiddenThreadIds] = useState<Set<number>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle external navigation (e.g. from Threads tab)
   useEffect(() => {
@@ -179,7 +180,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
       </div>
 
       {/* Diff viewer area */}
-      <div className="flex-1 min-w-0 overflow-x-auto" style={{ height: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+      <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-x-auto relative" style={{ height: 'calc(100vh - 220px)', overflowY: 'auto' }}>
         {selectedFile && selectedChange ? (
           <div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
@@ -222,6 +223,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                   else next.add(threadId);
                   return next;
                 })}
+                parentScrollRef={scrollContainerRef}
               />
             ) : null}
           </div>

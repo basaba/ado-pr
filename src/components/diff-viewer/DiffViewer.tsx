@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, type RefObject } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
 import { MarkdownContent } from '../common';
+import { ScrollbarMinimap } from './ScrollbarMinimap';
 
 interface Props {
   oldContent: string;
@@ -16,11 +17,12 @@ interface Props {
   currentUserId?: string;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
+  parentScrollRef?: RefObject<HTMLDivElement | null>;
   scrollToLine?: number;
   onScrollHandled?: () => void;
 }
 
-interface DiffLine {
+export interface DiffLine {
   type: 'unchanged' | 'added' | 'removed';
   oldLineNum: number | null;
   newLineNum: number | null;
@@ -115,6 +117,7 @@ export function DiffViewer({
   currentUserId,
   hiddenThreadIds,
   onToggleHideThread,
+  parentScrollRef,
   scrollToLine,
   onScrollHandled,
 }: Props) {
@@ -248,59 +251,61 @@ export function DiffViewer({
   };
 
   return (
-    <div className="overflow-x-auto text-xs font-mono relative" ref={scrollContainerRef}>
-      {hasCollapsed && (
-        <div className="flex justify-end px-3 py-1.5 bg-gray-50 border-b border-gray-200 font-sans">
-          <button
-            onClick={() => { setExpanded(!expanded); setExpandedSections(new Set()); }}
-            className="text-xs text-blue-600 hover:underline"
-          >
-            {expanded ? '⊟ Compact diff' : '⊞ Show full file'}
-          </button>
-        </div>
-      )}
+    <div className="text-xs font-mono relative flex" ref={scrollContainerRef}>
+      <div className="flex-1 min-w-0 overflow-x-auto">
+        {hasCollapsed && (
+          <div className="flex justify-end px-3 py-1.5 bg-gray-50 border-b border-gray-200 font-sans">
+            <button
+              onClick={() => { setExpanded(!expanded); setExpandedSections(new Set()); }}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              {expanded ? '⊟ Compact diff' : '⊞ Show full file'}
+            </button>
+          </div>
+        )}
 
-      <table className="w-full border-collapse">
-        <tbody>
-          {expanded
-            ? diffLines.map((_, idx) => renderDiffLine(idx))
-            : hunks.map((item, hunkIdx) => {
-                if (item.kind === 'line') return renderDiffLine(item.idx);
-                if (expandedSections.has(hunkIdx)) {
-                  // Render all lines in this expanded section
-                  const lines = [];
-                  for (let i = item.fromIdx; i <= item.toIdx; i++) {
-                    lines.push(renderDiffLine(i));
+        <table className="w-full border-collapse">
+          <tbody>
+            {expanded
+              ? diffLines.map((_, idx) => renderDiffLine(idx))
+              : hunks.map((item, hunkIdx) => {
+                  if (item.kind === 'line') return renderDiffLine(item.idx);
+                  if (expandedSections.has(hunkIdx)) {
+                    const lines = [];
+                    for (let i = item.fromIdx; i <= item.toIdx; i++) {
+                      lines.push(renderDiffLine(i));
+                    }
+                    return lines;
                   }
-                  return lines;
-                }
-                return (
-                  <tr key={`sep-${hunkIdx}`}>
-                    <td
-                      colSpan={4}
-                      className="bg-blue-50 text-center text-xs text-blue-500 py-1 select-none cursor-pointer hover:bg-blue-100 font-sans"
-                      onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}
-                    >
-                      ⋯ {item.hiddenCount} unchanged line{item.hiddenCount !== 1 ? 's' : ''} hidden ⋯
-                    </td>
-                  </tr>
-                );
-              })}
-        </tbody>
-      </table>
+                  return (
+                    <tr key={`sep-${hunkIdx}`}>
+                      <td
+                        colSpan={4}
+                        className="bg-blue-50 text-center text-xs text-blue-500 py-1 select-none cursor-pointer hover:bg-blue-100 font-sans"
+                        onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}
+                      >
+                        ⋯ {item.hiddenCount} unchanged line{item.hiddenCount !== 1 ? 's' : ''} hidden ⋯
+                      </td>
+                    </tr>
+                  );
+                })}
+          </tbody>
+        </table>
 
-      {unmatchedThreads.length > 0 && (
-        <div className="border-t border-gray-200 p-4 font-sans">
-          <p className="text-xs text-gray-500 mb-2">
-            💬 {unmatchedThreads.length} comment{unmatchedThreads.length !== 1 ? 's' : ''} on this file (not matched to a diff line):
-          </p>
-          {unmatchedThreads.map((thread) => (
-            <div key={thread.id} className="mb-3">
-              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} currentUserId={currentUserId} hiddenThreadIds={hiddenThreadIds} onToggleHideThread={onToggleHideThread} />
-            </div>
-          ))}
-        </div>
-      )}
+        {unmatchedThreads.length > 0 && (
+          <div className="border-t border-gray-200 p-4 font-sans">
+            <p className="text-xs text-gray-500 mb-2">
+              💬 {unmatchedThreads.length} comment{unmatchedThreads.length !== 1 ? 's' : ''} on this file (not matched to a diff line):
+            </p>
+            {unmatchedThreads.map((thread) => (
+              <div key={thread.id} className="mb-3">
+                <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} currentUserId={currentUserId} hiddenThreadIds={hiddenThreadIds} onToggleHideThread={onToggleHideThread} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <ScrollbarMinimap diffLines={diffLines} threadLineSet={threadLineSet} scrollContainerRef={parentScrollRef ?? scrollContainerRef} />
     </div>
   );
 }
