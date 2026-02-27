@@ -13,6 +13,7 @@ interface Props {
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   usersMap?: Record<string, string>;
+  currentUserId?: string;
   scrollToLine?: number;
   onScrollHandled?: () => void;
 }
@@ -109,6 +110,7 @@ export function DiffViewer({
   onSetStatus,
   onDeleteComment,
   usersMap,
+  currentUserId,
   scrollToLine,
   onScrollHandled,
 }: Props) {
@@ -234,6 +236,7 @@ export function DiffViewer({
         onDeleteComment={onDeleteComment}
         commentBoxWidth={commentBoxWidth}
         usersMap={usersMap}
+        currentUserId={currentUserId}
       />
     );
   };
@@ -287,7 +290,7 @@ export function DiffViewer({
           </p>
           {unmatchedThreads.map((thread) => (
             <div key={thread.id} className="mb-3">
-              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} />
+              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} currentUserId={currentUserId} />
             </div>
           ))}
         </div>
@@ -300,7 +303,7 @@ function DiffLineRow({
   line, lineColors, lineTextColors, gutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment,
-  commentBoxWidth, usersMap,
+  commentBoxWidth, usersMap, currentUserId,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -319,6 +322,7 @@ function DiffLineRow({
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   commentBoxWidth: string;
   usersMap?: Record<string, string>;
+  currentUserId?: string;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
@@ -344,7 +348,7 @@ function DiffLineRow({
         <tr key={`thread-${thread.id}`}>
           <td colSpan={4} className="bg-blue-50 border-l-4 border-blue-400 p-0">
             <div className="px-6 py-2" style={{ width: commentBoxWidth, maxWidth: commentBoxWidth }}>
-              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} />
+              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} currentUserId={currentUserId} />
             </div>
           </td>
         </tr>
@@ -381,13 +385,14 @@ function DiffLineRow({
 }
 
 function InlineThread({
-  thread, onReply, onSetStatus, onDeleteComment, usersMap,
+  thread, onReply, onSetStatus, onDeleteComment, usersMap, currentUserId,
 }: {
   thread: PullRequestThread;
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   usersMap?: Record<string, string>;
+  currentUserId?: string;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -413,30 +418,17 @@ function InlineThread({
         <span className={`rounded px-1 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
           {thread.status}
         </span>
-        {thread.status === 'active' ? (
-          <button onClick={() => onSetStatus(thread.id, 'fixed')} className="text-green-600 hover:underline">Resolve</button>
-        ) : (
-          <button onClick={() => onSetStatus(thread.id, 'active')} className="text-blue-600 hover:underline">Reopen</button>
-        )}
       </div>
       {textComments.map((c) => (
         <div key={c.id} className="pl-2 border-l-2 border-gray-200">
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-700 text-xs">{c.author.displayName}</span>
             <span className="text-gray-400 text-xs">{formatDate(c.publishedDate)}</span>
-            {onDeleteComment && (
-              <button
-                onClick={() => { if (confirm('Delete this comment?')) onDeleteComment(thread.id, c.id); }}
-                className="text-red-400 hover:text-red-600 text-xs hover:underline ml-auto"
-              >
-                Delete
-              </button>
-            )}
           </div>
           <MarkdownContent content={c.content} className="text-gray-800 text-sm" usersMap={usersMap} />
         </div>
       ))}
-      {showReply ? (
+      {showReply && (
         <div className="mt-1">
           <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} rows={2}
             className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -446,9 +438,30 @@ function InlineThread({
               className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs disabled:opacity-50">Reply</button>
           </div>
         </div>
-      ) : (
-        <button onClick={() => setShowReply(true)} className="text-xs text-blue-600 hover:underline">Reply</button>
       )}
+      <div className="flex items-center gap-2 text-xs">
+        {!showReply && (
+          <button onClick={() => setShowReply(true)} className="text-blue-600 hover:underline">Reply</button>
+        )}
+        {thread.status === 'active' ? (
+          <>
+            <span className="text-gray-300">|</span>
+            <button onClick={() => onSetStatus(thread.id, 'fixed')} className="text-green-600 hover:underline">Resolve</button>
+          </>
+        ) : (
+          <>
+            <span className="text-gray-300">|</span>
+            <button onClick={() => onSetStatus(thread.id, 'active')} className="text-blue-600 hover:underline">Reopen</button>
+          </>
+        )}
+        {onDeleteComment && textComments.length > 0 && currentUserId && textComments[textComments.length - 1].author.id === currentUserId && (
+          <>
+            <span className="text-gray-300">|</span>
+            <button onClick={() => { if (confirm('Delete this comment?')) onDeleteComment(thread.id, textComments[textComments.length - 1].id); }}
+              className="text-red-400 hover:text-red-600 hover:underline">Delete</button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

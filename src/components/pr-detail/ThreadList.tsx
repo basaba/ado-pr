@@ -9,10 +9,11 @@ interface Props {
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   usersMap?: Record<string, string>;
+  currentUserId?: string;
   onNavigateToFile?: (filePath: string, line?: number) => void;
 }
 
-export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, usersMap, onNavigateToFile }: Props) {
+export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, usersMap, currentUserId, onNavigateToFile }: Props) {
   if (threads.length === 0) {
     return <p className="text-gray-400 text-sm italic">No threads yet.</p>;
   }
@@ -27,6 +28,7 @@ export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, use
           onSetStatus={onSetStatus}
           onDeleteComment={onDeleteComment}
           usersMap={usersMap}
+          currentUserId={currentUserId}
           onNavigateToFile={onNavigateToFile}
         />
       ))}
@@ -40,6 +42,7 @@ function ThreadItem({
   onSetStatus,
   onDeleteComment,
   usersMap,
+  currentUserId,
   onNavigateToFile,
 }: {
   thread: PullRequestThread;
@@ -47,6 +50,7 @@ function ThreadItem({
   onSetStatus: Props['onSetStatus'];
   onDeleteComment?: Props['onDeleteComment'];
   usersMap?: Record<string, string>;
+  currentUserId?: string;
   onNavigateToFile?: (filePath: string, line?: number) => void;
 }) {
   const [replyText, setReplyText] = useState('');
@@ -101,33 +105,6 @@ function ThreadItem({
             )
           )}
         </div>
-        <div className="flex gap-1">
-          {thread.status === 'active' && (
-            <>
-              <button
-                onClick={() => onSetStatus(thread.id, 'fixed')}
-                className="text-green-600 hover:underline"
-              >
-                Resolve
-              </button>
-              <span className="text-gray-300">|</span>
-              <button
-                onClick={() => onSetStatus(thread.id, 'wontFix')}
-                className="text-gray-500 hover:underline"
-              >
-                Won't Fix
-              </button>
-            </>
-          )}
-          {(thread.status === 'fixed' || thread.status === 'wontFix' || thread.status === 'closed') && (
-            <button
-              onClick={() => onSetStatus(thread.id, 'active')}
-              className="text-blue-600 hover:underline"
-            >
-              Reopen
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Comments */}
@@ -137,58 +114,93 @@ function ThreadItem({
             <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
               <span className="font-medium text-gray-700">{comment.author.displayName}</span>
               <span>{formatDate(comment.publishedDate)}</span>
-              {onDeleteComment && (
-                <button
-                  onClick={() => {
-                    if (confirm('Delete this comment?')) {
-                      onDeleteComment(thread.id, comment.id);
-                    }
-                  }}
-                  className="ml-auto text-red-400 hover:text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              )}
             </div>
             <MarkdownContent content={comment.content} className="text-sm text-gray-800" usersMap={usersMap} />
           </div>
         ))}
       </div>
 
-      {/* Reply */}
-      <div className="px-4 py-2 border-t border-gray-100">
-        {showReply ? (
-          <div>
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              rows={2}
-              placeholder="Write a reply..."
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="flex gap-2 mt-1 justify-end">
-              <button
-                onClick={() => setShowReply(false)}
-                className="text-xs text-gray-500 hover:underline"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReply}
-                disabled={sending || !replyText.trim()}
-                className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {sending ? 'Sending...' : 'Reply'}
-              </button>
-            </div>
+      {/* Reply form */}
+      {showReply && (
+        <div className="px-4 py-2 border-t border-gray-100">
+          <textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            rows={2}
+            placeholder="Write a reply..."
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="flex gap-2 mt-1 justify-end">
+            <button
+              onClick={() => setShowReply(false)}
+              className="text-xs text-gray-500 hover:underline"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReply}
+              disabled={sending || !replyText.trim()}
+              className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {sending ? 'Sending...' : 'Reply'}
+            </button>
           </div>
-        ) : (
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex gap-1 items-center px-4 py-2 border-t border-gray-100 text-xs">
+        {!showReply && (
           <button
             onClick={() => setShowReply(true)}
-            className="text-xs text-blue-600 hover:underline"
+            className="text-blue-600 hover:underline"
           >
             Reply
           </button>
+        )}
+        {thread.status === 'active' && (
+          <>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => onSetStatus(thread.id, 'fixed')}
+              className="text-green-600 hover:underline"
+            >
+              Resolve
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => onSetStatus(thread.id, 'wontFix')}
+              className="text-gray-500 hover:underline"
+            >
+              Won't Fix
+            </button>
+          </>
+        )}
+        {(thread.status === 'fixed' || thread.status === 'wontFix' || thread.status === 'closed') && (
+          <>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => onSetStatus(thread.id, 'active')}
+              className="text-blue-600 hover:underline"
+            >
+              Reopen
+            </button>
+          </>
+        )}
+        {onDeleteComment && textComments.length > 0 && currentUserId && textComments[textComments.length - 1].author.id === currentUserId && (
+          <>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => {
+                if (confirm('Delete this comment?')) {
+                  onDeleteComment(thread.id, textComments[textComments.length - 1].id);
+                }
+              }}
+              className="text-red-400 hover:text-red-600 hover:underline"
+            >
+              Delete
+            </button>
+          </>
         )}
       </div>
     </div>

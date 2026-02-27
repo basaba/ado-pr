@@ -183,7 +183,7 @@ export function PrDetailPage() {
 
         <div className={activeTab === 'files' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
-            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} />
+            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} />
           )}
           {activeTab === 'files' && (
             <FilesTab
@@ -194,12 +194,14 @@ export function PrDetailPage() {
               usersMap={usersMap}
               navigateTarget={fileNavTarget}
               onNavigateHandled={() => setFileNavTarget(null)}
+              currentUserId={profile?.id}
             />
           )}
           {activeTab === 'threads' && (
             <ThreadsTab
               threads={threads}
               usersMap={usersMap}
+              currentUserId={profile?.id}
               onNavigateToFile={(filePath, line) => {
                 setFileNavTarget({ filePath, line });
                 setActiveTab('files');

@@ -9,9 +9,10 @@ interface Props {
   pr: PullRequest;
   threads: ReturnType<typeof useThreads>;
   usersMap: Record<string, string>;
+  currentUserId?: string;
 }
 
-export function OverviewTab({ pr, threads, usersMap }: Props) {
+export function OverviewTab({ pr, threads, usersMap, currentUserId }: Props) {
   // Filter general (non-file-specific) threads
   const generalThreads = threads.threads.filter(
     (t) => !t.threadContext?.filePath && t.comments.some((c) => isTextComment(c.commentType)),
@@ -60,6 +61,7 @@ export function OverviewTab({ pr, threads, usersMap }: Props) {
           onSetStatus={threads.setStatus}
           onDeleteComment={threads.removeComment}
           usersMap={usersMap}
+          currentUserId={currentUserId}
         />
         <NewCommentBox onSubmit={(content) => threads.addThread(content)} />
       </section>

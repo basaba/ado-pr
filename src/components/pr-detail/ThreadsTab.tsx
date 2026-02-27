@@ -7,6 +7,7 @@ import { ThreadList } from './ThreadList';
 interface Props {
   threads: ReturnType<typeof useThreads>;
   usersMap?: Record<string, string>;
+  currentUserId?: string;
   onNavigateToFile?: (filePath: string, line?: number) => void;
 }
 
@@ -18,7 +19,7 @@ const STATUS_FILTERS: { label: string; value: ThreadStatus | 'all' }[] = [
   { label: 'Closed', value: 'closed' },
 ];
 
-export function ThreadsTab({ threads, usersMap, onNavigateToFile }: Props) {
+export function ThreadsTab({ threads, usersMap, currentUserId, onNavigateToFile }: Props) {
   const [filter, setFilter] = useState<ThreadStatus | 'all'>('all');
   const [selectedCommenters, setSelectedCommenters] = useState<Set<string>>(new Set());
 
@@ -118,6 +119,7 @@ export function ThreadsTab({ threads, usersMap, onNavigateToFile }: Props) {
         onSetStatus={threads.setStatus}
         onDeleteComment={threads.removeComment}
         usersMap={usersMap}
+        currentUserId={currentUserId}
         onNavigateToFile={onNavigateToFile}
       />
     </div>
