@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context';
 import { AppShell } from './components/layout';
-import { LoginPage, PrListPage, PrDetailPage } from './pages';
+import { LoginPage, PrListPage, PrDetailPage, AuthorListPage } from './pages';
 import { Spinner } from './components/common';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +38,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <PrDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/author-lists"
+              element={
+                <ProtectedRoute>
+                  <AuthorListPage />
                 </ProtectedRoute>
               }
             />
