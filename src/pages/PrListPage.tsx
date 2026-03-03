@@ -9,7 +9,7 @@ import { useAuth } from '../context';
 import type { PrSearchFilters } from '../api/pullRequests';
 import { getRepositoryByName } from '../api/pullRequests';
 
-type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active' | 'authors';
+type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active';
 type DateRange = '30' | '60' | '90' | '180' | '365' | 'all';
 
 function daysAgoISO(days: number): string {
@@ -25,7 +25,8 @@ export function PrListPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  const [preset, setPreset] = useState<PresetFilter>('assigned-to-me');
+  const [preset, setPreset] = useState<PresetFilter | null>('assigned-to-me');
+  const [authorListActive, setAuthorListActive] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('30');
   const [repoId, setRepoId] = useState<string>(
     () => localStorage.getItem(REPO_STORAGE_KEY) ?? '',
@@ -77,8 +78,15 @@ export function PrListPage() {
     [resolveRepo, repoName],
   );
 
-  const handleAuthorsChange = useCallback((newAuthors: { id: string; displayName: string }[]) => {
-    setAuthors(newAuthors);
+  const handlePresetClick = useCallback((id: PresetFilter) => {
+    setPreset(id);
+    setAuthorListActive(false);
+  }, []);
+
+  const handleAuthorListActiveChange = useCallback((active: boolean) => {
+    setAuthorListActive(active);
+    if (active) setPreset(null);
+    else setPreset('assigned-to-me');
   }, []);
 
   const filters = useMemo<PrSearchFilters>(() => {
@@ -90,7 +98,7 @@ export function PrListPage() {
           return { creatorId: profile?.id, status: 'active' };
         case 'all-active':
           return { status: 'active' };
-        case 'authors':
+        default:
           return { status: 'active' };
       }
     })();
@@ -107,8 +115,8 @@ export function PrListPage() {
   }, [preset, profile?.id, dateRange, repoId, targetBranch]);
 
   const authorIds = useMemo(
-    () => preset === 'authors' && authors.length > 0 ? authors.map((a) => a.id) : undefined,
-    [preset, authors],
+    () => authors.length > 0 ? authors.map((a) => a.id) : undefined,
+    [authors],
   );
 
   const { pullRequests, loading, error, refresh } = usePullRequests(filters, authorIds);
@@ -117,7 +125,6 @@ export function PrListPage() {
     { id: 'assigned-to-me', label: '👤 Assigned to me' },
     { id: 'created-by-me', label: '✍️ Created by me' },
     { id: 'all-active', label: '📋 All active' },
-    { id: 'authors', label: '✍️ Authors' },
   ];
 
   return (
@@ -135,7 +142,7 @@ export function PrListPage() {
           {presets.map((p) => (
             <button
               key={p.id}
-              onClick={() => setPreset(p.id)}
+              onClick={() => handlePresetClick(p.id)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 preset === p.id
                   ? 'bg-blue-600 text-white'
@@ -145,14 +152,12 @@ export function PrListPage() {
               {p.label}
             </button>
           ))}
-          {preset === 'authors' && (
-            <span className="mx-2 text-gray-300">|</span>
-          )}
-          <div className={preset === 'authors' ? '' : 'hidden'}>
-            <AuthorListManager
-              onChange={handleAuthorsChange}
-            />
-          </div>
+          <span className="mx-2 text-gray-300">|</span>
+          <AuthorListManager
+            onChange={setAuthors}
+            active={authorListActive}
+            onActiveChange={handleAuthorListActiveChange}
+          />
           <div className="ml-auto flex items-center gap-2">
             <select
               value={dateRange}

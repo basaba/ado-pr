@@ -9,49 +9,61 @@ interface Author {
 
 interface AuthorListManagerProps {
   onChange: (authors: Author[]) => void;
+  active: boolean;
+  onActiveChange: (active: boolean) => void;
 }
 
-export function AuthorListManager({ onChange }: AuthorListManagerProps) {
+export function AuthorListManager({ onChange, active, onActiveChange }: AuthorListManagerProps) {
   const navigate = useNavigate();
   const [lists] = useState(() => loadLists());
-  const [selected, setSelected] = useState<string>(() => loadSelectedList(loadLists()));
+  const [selected, setSelected] = useState<string | null>(null);
 
-  const currentAuthors = selected ? (lists[selected] ?? []) : [];
+  const currentAuthors = selected && active ? (lists[selected] ?? []) : [];
 
   useEffect(() => {
     onChange(currentAuthors);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, JSON.stringify(currentAuthors)]);
+  }, [selected, active, JSON.stringify(currentAuthors)]);
+
+  // Deselect when parent deactivates
+  useEffect(() => {
+    if (!active) setSelected(null);
+  }, [active]);
 
   const handleSelect = useCallback((name: string) => {
-    setSelected(name);
-    localStorage.setItem(SELECTED_KEY, name);
-  }, []);
+    if (selected === name) {
+      setSelected(null);
+      onActiveChange(false);
+      localStorage.removeItem(SELECTED_KEY);
+    } else {
+      setSelected(name);
+      onActiveChange(true);
+      localStorage.setItem(SELECTED_KEY, name);
+    }
+  }, [selected, onActiveChange]);
 
   const listNames = Object.keys(lists);
 
   return (
-    <div className="relative flex items-center gap-2">
-      {listNames.length > 0 ? (
-        <select
-          value={selected}
-          onChange={(e) => handleSelect(e.target.value)}
-          className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700"
+    <div className="flex items-center gap-1.5">
+      {listNames.map((name) => (
+        <button
+          key={name}
+          onClick={() => handleSelect(name)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            selected === name
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
         >
-          {listNames.map((name) => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </select>
-      ) : (
-        <span className="text-sm text-gray-400">No lists</span>
-      )}
-
+          {name}
+        </button>
+      ))}
       <button
         onClick={() => navigate('/author-lists')}
-        className="px-2 py-1.5 rounded-lg text-sm font-medium transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
-        title="Manage author lists"
+        className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
       >
-        ⚙️ Manage
+        + New list
       </button>
     </div>
   );

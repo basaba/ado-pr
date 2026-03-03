@@ -132,22 +132,20 @@ export function AuthorListPage() {
 
   return (
     <div>
+      <button
+        onClick={() => navigate('/')}
+        className="text-sm text-blue-600 hover:underline mb-2"
+      >
+        ← Back to Pull Requests
+      </button>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">Manage Author Lists</h1>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleNewList}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
-          >
-            + New list
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            ← Back to Pull Requests
-          </button>
-        </div>
+        <button
+          onClick={handleNewList}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+        >
+          + New list
+        </button>
       </div>
 
       {listNames.length === 0 && !editingName && (
@@ -176,11 +174,12 @@ export function AuthorListPage() {
                   />
                 ) : (
                   <h2
-                    className="text-base font-semibold text-gray-800 cursor-pointer hover:text-blue-600"
+                    className="text-base font-semibold text-gray-800 cursor-pointer hover:text-blue-600 group"
                     onClick={() => { setEditingName(name); setDraftName(name.startsWith('__new_list') ? '' : name); }}
                     title="Click to rename"
                   >
                     {name.startsWith('__new_list') ? <span className="text-gray-400 italic">Untitled list</span> : name}
+                    <span className="ml-1.5 text-gray-300 group-hover:text-blue-400 text-sm">✏️</span>
                   </h2>
                 )}
                 <button
