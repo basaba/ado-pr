@@ -2,6 +2,7 @@ import { adoClient } from './client';
 import type {
   AdoListResponse,
   PullRequest,
+  PullRequestCompletionOptions,
   GitRepository,
   IdentityRef,
   VoteValue,
@@ -124,6 +125,49 @@ export async function votePullRequest(
 ): Promise<void> {
   await adoClient.put(`${prBasePath(repoId, prId)}/reviewers/${reviewerId}`, {
     vote,
+  });
+}
+
+export async function completePullRequest(
+  repoId: string,
+  prId: number,
+  lastMergeSourceCommitId: string,
+  options?: PullRequestCompletionOptions,
+): Promise<PullRequest> {
+  return adoClient.patch<PullRequest>(prBasePath(repoId, prId), {
+    status: 'completed',
+    lastMergeSourceCommit: { commitId: lastMergeSourceCommitId },
+    completionOptions: options ?? {},
+  });
+}
+
+export async function abandonPullRequest(
+  repoId: string,
+  prId: number,
+): Promise<PullRequest> {
+  return adoClient.patch<PullRequest>(prBasePath(repoId, prId), {
+    status: 'abandoned',
+  });
+}
+
+export async function setAutoComplete(
+  repoId: string,
+  prId: number,
+  userId: string,
+  options?: PullRequestCompletionOptions,
+): Promise<PullRequest> {
+  return adoClient.patch<PullRequest>(prBasePath(repoId, prId), {
+    autoCompleteSetBy: { id: userId },
+    completionOptions: options ?? {},
+  });
+}
+
+export async function cancelAutoComplete(
+  repoId: string,
+  prId: number,
+): Promise<PullRequest> {
+  return adoClient.patch<PullRequest>(prBasePath(repoId, prId), {
+    autoCompleteSetBy: { id: '' },
   });
 }
 

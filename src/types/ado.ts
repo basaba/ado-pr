@@ -35,6 +35,15 @@ export interface PullRequest {
   isDraft: boolean;
   url: string;
   labels?: { id: string; name: string }[];
+  autoCompleteSetBy?: IdentityRef;
+  lastMergeSourceCommit?: { commitId: string };
+  completionOptions?: PullRequestCompletionOptions;
+}
+
+export interface PullRequestCompletionOptions {
+  deleteSourceBranch?: boolean;
+  mergeStrategy?: 'noFastForward' | 'squash' | 'rebase' | 'rebaseMerge';
+  transitionWorkItems?: boolean;
 }
 
 export interface Reviewer extends IdentityRef {

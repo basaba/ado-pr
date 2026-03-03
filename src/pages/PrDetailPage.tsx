@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getPullRequest, votePullRequest } from '../api';
+import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete } from '../api';
 import { useAuth } from '../context';
 import { useThreads, useDiff } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
-import { Spinner, ErrorBanner, Button, Badge } from '../components/common';
+import { Spinner, ErrorBanner, Button, Badge, SplitButton } from '../components/common';
 import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName, buildUsersMap } from '../utils';
 import { OverviewTab } from '../components/pr-detail/OverviewTab';
@@ -22,6 +22,7 @@ export function PrDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [voting, setVoting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [fileNavTarget, setFileNavTarget] = useState<FileNavigateTarget | null>(null);
 
   const threads = useThreads(repoId!, Number(prId));
@@ -46,6 +47,9 @@ export function PrDetailPage() {
 
   const myReview = pr.reviewers.find((r) => r.id === profile?.id);
   const myVote = myReview?.vote ?? 0;
+  const isMyPr = profile?.id === pr.createdBy.id;
+  const isActive = pr.status === 'active';
+  const hasAutoComplete = !!pr.autoCompleteSetBy?.id;
 
   const handleVote = async (vote: VoteValue) => {
     if (!profile) return;
@@ -66,6 +70,51 @@ export function PrDetailPage() {
       alert(err instanceof Error ? err.message : 'Vote failed');
     } finally {
       setVoting(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!pr.lastMergeSourceCommit?.commitId) {
+      alert('Cannot complete: no merge source commit found.');
+      return;
+    }
+    if (!confirm('Complete this pull request?')) return;
+    setActionLoading(true);
+    try {
+      const updated = await completePullRequest(repoId!, pr.pullRequestId, pr.lastMergeSourceCommit.commitId);
+      setPr(updated);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Complete failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAbandon = async () => {
+    if (!confirm('Abandon this pull request?')) return;
+    setActionLoading(true);
+    try {
+      const updated = await abandonPullRequest(repoId!, pr.pullRequestId);
+      setPr(updated);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Abandon failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleToggleAutoComplete = async () => {
+    if (!profile) return;
+    setActionLoading(true);
+    try {
+      const updated = hasAutoComplete
+        ? await cancelAutoComplete(repoId!, pr.pullRequestId)
+        : await setAutoComplete(repoId!, pr.pullRequestId, profile.id);
+      setPr(updated);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Autocomplete toggle failed');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -156,6 +205,26 @@ export function PrDetailPage() {
             </Button>
           )}
         </div>
+
+        {/* PR actions for owner */}
+        {isMyPr && isActive && (
+          <div className="flex gap-2 mt-3 border-t border-gray-100 pt-3 items-center">
+            <SplitButton
+              disabled={actionLoading}
+              size="sm"
+              options={[
+                { label: 'Complete', onClick: handleComplete, variant: 'success' },
+                { label: hasAutoComplete ? 'Cancel Autocomplete' : 'Set Autocomplete', onClick: handleToggleAutoComplete },
+                { label: 'Abandon', onClick: handleAbandon },
+              ]}
+            />
+            {hasAutoComplete && (
+              <span className="text-xs text-blue-600 ml-1">
+                Autocomplete is on
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
