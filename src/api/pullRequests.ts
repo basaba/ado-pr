@@ -17,6 +17,7 @@ export interface PrSearchFilters {
   status?: string; // active | completed | abandoned | all
   minTime?: string; // ISO date string
   repositoryId?: string;
+  targetRefName?: string; // e.g. refs/heads/main
 }
 
 export async function getMyProfile(): Promise<IdentityRef> {
@@ -42,6 +43,7 @@ export async function searchPullRequests(filters: PrSearchFilters = {}): Promise
   if (filters.reviewerId) params['searchCriteria.reviewerId'] = filters.reviewerId;
   if (filters.creatorId) params['searchCriteria.creatorId'] = filters.creatorId;
   if (filters.minTime) params['searchCriteria.minTime'] = filters.minTime;
+  if (filters.targetRefName) params['searchCriteria.targetRefName'] = filters.targetRefName;
   const path = filters.repositoryId
     ? `/git/repositories/${filters.repositoryId}/pullrequests`
     : '/git/pullrequests';
@@ -57,7 +59,7 @@ export interface IdentitySearchResult {
 }
 
 /** Search for identities by display name or email */
-export async function searchIdentities(query: string): Promise<IdentitySearchResult[]> {
+export async function searchIdentities(query: string, identityTypes: string[] = ['user', 'group']): Promise<IdentitySearchResult[]> {
   if (!query || query.length < 2) return [];
   try {
     // Use the org-level Identity Picker API (POST)
@@ -71,7 +73,7 @@ export async function searchIdentities(query: string): Promise<IdentitySearchRes
       headers,
       body: JSON.stringify({
         query: query,
-        identityTypes: ['user', 'group'],
+        identityTypes,
         operationScopes: ['ims', 'source'],
         options: { MinResults: 5, MaxResults: 20 },
         properties: ['DisplayName', 'Mail', 'ScopeName'],
@@ -106,6 +108,59 @@ export async function searchIdentities(query: string): Promise<IdentitySearchRes
       return [];
     }
   }
+}
+
+/** Search for ADO groups by display name using the Graph Subject Query API */
+export async function searchGroups(query: string): Promise<IdentitySearchResult[]> {
+  if (!query || query.length < 2) return [];
+  try {
+    const data = await adoClient.postVssps<{
+      value: { descriptor: string; displayName: string; originId: string; origin: string; mailAddress?: string }[];
+    }>('/graph/subjectquery', {
+      query: query,
+      subjectKind: ['Group'],
+    });
+    return (data.value ?? []).map((g) => ({
+      id: g.originId || g.descriptor,
+      displayName: g.displayName,
+      mail: g.mailAddress,
+    }));
+  } catch {
+    return searchIdentities(query, ['group']);
+  }
+}
+
+export interface UserSearchResult extends IdentitySearchResult {
+  descriptor?: string;
+}
+
+/** Search for ADO users by display name using the Graph Subject Query API */
+export async function searchUsers(query: string): Promise<UserSearchResult[]> {
+  if (!query || query.length < 2) return [];
+  try {
+    const data = await adoClient.postVssps<{
+      value: { descriptor: string; displayName: string; originId: string; origin: string; mailAddress?: string }[];
+    }>('/graph/subjectquery', {
+      query: query,
+      subjectKind: ['User'],
+    });
+    return (data.value ?? []).map((u) => ({
+      id: u.originId || u.descriptor,
+      descriptor: u.descriptor,
+      displayName: u.displayName,
+      mail: u.mailAddress,
+    }));
+  } catch {
+    return searchIdentities(query, ['user']);
+  }
+}
+
+/** Resolve a Graph descriptor to the VSTS identity GUID (needed for PR API filters) */
+export async function resolveIdentityId(descriptor: string): Promise<string> {
+  const data = await adoClient.getVssps<{ value: string }>(
+    `/graph/storagekeys/${descriptor}`,
+  );
+  return data.value;
 }
 
 export async function getPullRequest(

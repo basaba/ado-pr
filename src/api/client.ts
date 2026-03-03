@@ -147,6 +147,20 @@ class AdoClient {
     return this.request<T>('GET', url.toString());
   }
 
+  /** VSSPS POST (e.g. Graph Subject Query), routed through the VSSPS proxy */
+  async postVssps<T>(path: string, body: unknown, apiVersion = '7.1-preview.1'): Promise<T> {
+    const url = new URL(`${window.location.origin}/ado-vssps-proxy/_apis${path}`);
+    url.searchParams.set('api-version', apiVersion);
+    return this.request<T>('POST', url.toString(), body);
+  }
+
+  /** VSSPS GET (e.g. Graph Storage Keys), routed through the VSSPS proxy */
+  async getVssps<T>(path: string, apiVersion = '7.1-preview.1'): Promise<T> {
+    const url = new URL(`${window.location.origin}/ado-vssps-proxy/_apis${path}`);
+    url.searchParams.set('api-version', apiVersion);
+    return this.request<T>('GET', url.toString());
+  }
+
   /** Resolve project name to GUID via the Projects API */
   async resolveProjectId(): Promise<void> {
     const data = await this.getOrg<{ id: string }>(`/projects/${encodeURIComponent(this.project)}`);

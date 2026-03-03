@@ -2,13 +2,14 @@ import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePullRequests } from '../hooks';
 import { Spinner, ErrorBanner, Badge } from '../components/common';
+import { AuthorAliasManager } from '../components/common/AuthorAliasManager';
 import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName } from '../utils';
 import { useAuth } from '../context';
 import type { PrSearchFilters } from '../api/pullRequests';
 import { getRepositoryByName } from '../api/pullRequests';
 
-type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active';
+type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active' | 'authors';
 type DateRange = '30' | '60' | '90' | '180' | '365' | 'all';
 
 function daysAgoISO(days: number): string {
@@ -34,6 +35,10 @@ export function PrListPage() {
   );
   const [repoLoading, setRepoLoading] = useState(false);
   const [repoError, setRepoError] = useState('');
+  const [authors, setAuthors] = useState<{ id: string; displayName: string }[]>([]);
+  const [targetBranch, setTargetBranch] = useState<string>(
+    () => localStorage.getItem('pr-filter-target-branch') ?? '',
+  );
 
   const resolveRepo = useCallback(async (name: string) => {
     const trimmed = name.trim();
@@ -72,6 +77,10 @@ export function PrListPage() {
     [resolveRepo, repoName],
   );
 
+  const handleAuthorsChange = useCallback((newAuthors: { id: string; displayName: string }[]) => {
+    setAuthors(newAuthors);
+  }, []);
+
   const filters = useMemo<PrSearchFilters>(() => {
     const base: PrSearchFilters = (() => {
       switch (preset) {
@@ -81,6 +90,8 @@ export function PrListPage() {
           return { creatorId: profile?.id, status: 'active' };
         case 'all-active':
           return { status: 'active' };
+        case 'authors':
+          return { status: 'active' };
       }
     })();
     if (dateRange !== 'all') {
@@ -89,15 +100,24 @@ export function PrListPage() {
     if (repoId) {
       base.repositoryId = repoId;
     }
+    if (targetBranch) {
+      base.targetRefName = `refs/heads/${targetBranch}`;
+    }
     return base;
-  }, [preset, profile?.id, dateRange, repoId]);
+  }, [preset, profile?.id, dateRange, repoId, targetBranch]);
 
-  const { pullRequests, loading, error, refresh } = usePullRequests(filters);
+  const authorIds = useMemo(
+    () => preset === 'authors' && authors.length > 0 ? authors.map((a) => a.id) : undefined,
+    [preset, authors],
+  );
+
+  const { pullRequests, loading, error, refresh } = usePullRequests(filters, authorIds);
 
   const presets: { id: PresetFilter; label: string }[] = [
     { id: 'assigned-to-me', label: '👤 Assigned to me' },
     { id: 'created-by-me', label: '✍️ Created by me' },
     { id: 'all-active', label: '📋 All active' },
+    { id: 'authors', label: '✍️ Authors' },
   ];
 
   return (
@@ -125,6 +145,14 @@ export function PrListPage() {
               {p.label}
             </button>
           ))}
+          {preset === 'authors' && (
+            <span className="mx-2 text-gray-300">|</span>
+          )}
+          <div className={preset === 'authors' ? '' : 'hidden'}>
+            <AuthorAliasManager
+              onChange={handleAuthorsChange}
+            />
+          </div>
           <span className="mx-2 text-gray-300">|</span>
           <select
             value={dateRange}
@@ -156,6 +184,29 @@ export function PrListPage() {
             {!repoLoading && repoId && (
               <button
                 onClick={() => { setRepoName(''); resolveRepo(''); }}
+                className="text-gray-400 hover:text-gray-600 text-sm"
+                title="Clear"
+              >✕</button>
+            )}
+          </div>
+          <span className="mx-2 text-gray-300">|</span>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500">Target:</span>
+            <input
+              type="text"
+              value={targetBranch}
+              placeholder="e.g. main"
+              onChange={(e) => {
+                setTargetBranch(e.target.value);
+                if (!e.target.value) localStorage.removeItem('pr-filter-target-branch');
+              }}
+              onBlur={() => { if (targetBranch) localStorage.setItem('pr-filter-target-branch', targetBranch); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') localStorage.setItem('pr-filter-target-branch', targetBranch); }}
+              className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-40"
+            />
+            {targetBranch && (
+              <button
+                onClick={() => { setTargetBranch(''); localStorage.removeItem('pr-filter-target-branch'); }}
                 className="text-gray-400 hover:text-gray-600 text-sm"
                 title="Clear"
               >✕</button>
