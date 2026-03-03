@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePullRequests } from '../hooks';
 import { Spinner, ErrorBanner, Badge } from '../components/common';
-import { AuthorAliasManager } from '../components/common/AuthorAliasManager';
+import { AuthorListManager } from '../components/common/AuthorListManager';
 import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName } from '../utils';
 import { useAuth } from '../context';
@@ -149,7 +149,7 @@ export function PrListPage() {
             <span className="mx-2 text-gray-300">|</span>
           )}
           <div className={preset === 'authors' ? '' : 'hidden'}>
-            <AuthorAliasManager
+            <AuthorListManager
               onChange={handleAuthorsChange}
             />
           </div>

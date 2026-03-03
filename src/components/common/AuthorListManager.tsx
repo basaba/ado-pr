@@ -6,32 +6,32 @@ interface Author {
   displayName: string;
 }
 
-type AliasMap = Record<string, Author[]>;
+type ListMap = Record<string, Author[]>;
 
-interface AuthorAliasManagerProps {
+interface AuthorListManagerProps {
   onChange: (authors: Author[]) => void;
 }
 
-const ALIASES_KEY = 'pr-author-aliases';
+const LISTS_KEY = 'pr-author-aliases';
 const SELECTED_KEY = 'pr-selected-alias';
 const LEGACY_KEY = 'pr-filter-authors';
 
-function loadAliases(): AliasMap {
+function loadLists(): ListMap {
   try {
-    const raw = localStorage.getItem(ALIASES_KEY);
+    const raw = localStorage.getItem(LISTS_KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* ignore */ }
 
-  // Migrate legacy single author list into a "Default" alias
+  // Migrate legacy single author list into a "Default" list
   try {
     const legacy = localStorage.getItem(LEGACY_KEY);
     if (legacy) {
       const authors = JSON.parse(legacy) as Author[];
       if (authors.length > 0) {
-        const aliases: AliasMap = { Default: authors };
-        localStorage.setItem(ALIASES_KEY, JSON.stringify(aliases));
+        const lists: ListMap = { Default: authors };
+        localStorage.setItem(LISTS_KEY, JSON.stringify(lists));
         localStorage.removeItem(LEGACY_KEY);
-        return aliases;
+        return lists;
       }
     }
   } catch { /* ignore */ }
@@ -39,16 +39,16 @@ function loadAliases(): AliasMap {
   return {};
 }
 
-function loadSelectedAlias(aliases: AliasMap): string {
+function loadSelectedList(lists: ListMap): string {
   const saved = localStorage.getItem(SELECTED_KEY);
-  if (saved && aliases[saved]) return saved;
-  const keys = Object.keys(aliases);
+  if (saved && lists[saved]) return saved;
+  const keys = Object.keys(lists);
   return keys.length > 0 ? keys[0] : '';
 }
 
-export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
-  const [aliases, setAliases] = useState<AliasMap>(loadAliases);
-  const [selected, setSelected] = useState<string>(() => loadSelectedAlias(loadAliases()));
+export function AuthorListManager({ onChange }: AuthorListManagerProps) {
+  const [lists, setLists] = useState<ListMap>(loadLists);
+  const [selected, setSelected] = useState<string>(() => loadSelectedList(loadLists()));
   const [popoutOpen, setPopoutOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -62,7 +62,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
   const popoutRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const currentAuthors = selected ? (aliases[selected] ?? []) : [];
+  const currentAuthors = selected ? (lists[selected] ?? []) : [];
 
   // Notify parent whenever the effective author list changes
   useEffect(() => {
@@ -70,29 +70,29 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, JSON.stringify(currentAuthors)]);
 
-  const persist = useCallback((newAliases: AliasMap, newSelected: string) => {
-    setAliases(newAliases);
+  const persist = useCallback((newLists: ListMap, newSelected: string) => {
+    setLists(newLists);
     setSelected(newSelected);
-    localStorage.setItem(ALIASES_KEY, JSON.stringify(newAliases));
+    localStorage.setItem(LISTS_KEY, JSON.stringify(newLists));
     localStorage.setItem(SELECTED_KEY, newSelected);
   }, []);
 
-  // Alias management
+  // List management
   const handleCreate = useCallback(() => {
     const name = newName.trim();
-    if (!name || aliases[name]) return;
-    persist({ ...aliases, [name]: [] }, name);
+    if (!name || lists[name]) return;
+    persist({ ...lists, [name]: [] }, name);
     setNewName('');
     setIsCreating(false);
-  }, [newName, aliases, persist]);
+  }, [newName, lists, persist]);
 
   const handleDelete = useCallback(() => {
     if (!selected) return;
-    const next = { ...aliases };
+    const next = { ...lists };
     delete next[selected];
     const keys = Object.keys(next);
     persist(next, keys.length > 0 ? keys[0] : '');
-  }, [selected, aliases, persist]);
+  }, [selected, lists, persist]);
 
   const handleSelect = useCallback((name: string) => {
     setSelected(name);
@@ -102,9 +102,9 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
   // Author management
   const handleRemoveAuthor = useCallback((authorId: string) => {
     if (!selected) return;
-    const updated = { ...aliases, [selected]: aliases[selected].filter((a) => a.id !== authorId) };
+    const updated = { ...lists, [selected]: lists[selected].filter((a) => a.id !== authorId) };
     persist(updated, selected);
-  }, [selected, aliases, persist]);
+  }, [selected, lists, persist]);
 
   const doSearch = useCallback(async (text: string) => {
     if (!text || text.length < 2) { setResults([]); return; }
@@ -135,15 +135,15 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
         try { identityId = await resolveIdentityId(item.descriptor); } catch { /* fallback */ }
       }
       const updated = {
-        ...aliases,
-        [selected]: [...aliases[selected], { id: identityId, displayName: item.displayName }],
+        ...lists,
+        [selected]: [...lists[selected], { id: identityId, displayName: item.displayName }],
       };
       persist(updated, selected);
       setQuery('');
       setResults([]);
       setSearchOpen(false);
     },
-    [selected, aliases, persist],
+    [selected, lists, persist],
   );
 
   // Close popout on click outside
@@ -159,19 +159,19 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [popoutOpen]);
 
-  const aliasNames = Object.keys(aliases);
+  const listNames = Object.keys(lists);
 
   return (
     <div className="relative flex items-center gap-2">
-      {/* Inline: alias dropdown + manage button */}
-      {aliasNames.length > 0 ? (
+      {/* Inline: list dropdown + manage button */}
+      {listNames.length > 0 ? (
         <select
           value={selected}
           onChange={(e) => handleSelect(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700"
         >
-          {aliasNames.map((name) => (
-            <option key={name} value={name}>{name} ({aliases[name].length})</option>
+          {listNames.map((name) => (
+            <option key={name} value={name}>{name} ({lists[name].length})</option>
           ))}
         </select>
       ) : (
@@ -205,7 +205,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
             </button>
           </div>
 
-          {/* Alias actions */}
+          {/* List actions */}
           <div className="flex items-center gap-2 flex-wrap">
             {isCreating ? (
               <div className="flex items-center gap-1">
@@ -241,7 +241,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
             )}
           </div>
 
-          {/* Authors for selected alias */}
+          {/* Authors for selected list */}
           {selected ? (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 font-medium">
@@ -303,7 +303,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
               </div>
             </div>
           ) : (
-            <p className="text-xs text-gray-400">Create an alias to start adding authors.</p>
+            <p className="text-xs text-gray-400">Create a list to start adding authors.</p>
           )}
         </div>
       )}
