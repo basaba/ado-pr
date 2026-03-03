@@ -153,64 +153,49 @@ export function PrListPage() {
               onChange={handleAuthorsChange}
             />
           </div>
-          <span className="mx-2 text-gray-300">|</span>
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value as DateRange)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 border-none cursor-pointer hover:bg-gray-200 transition-colors"
-          >
-            <option value="30">Last 30 days</option>
-            <option value="60">Last 60 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="180">Last 6 months</option>
-            <option value="365">Last year</option>
-            <option value="all">All time</option>
-          </select>
-          <span className="mx-2 text-gray-300">|</span>
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500">Repo:</span>
-            <input
-              type="text"
-              value={repoName}
-              placeholder="Type repository name…"
-              onChange={(e) => { setRepoName(e.target.value); if (!e.target.value) resolveRepo(''); }}
-              onBlur={() => resolveRepo(repoName)}
-              onKeyDown={handleRepoKeyDown}
-              className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-56"
-              disabled={repoLoading}
-            />
-            {repoLoading && <span className="text-gray-400 text-xs animate-pulse">…</span>}
-            {repoError && <span className="text-red-500 text-xs">{repoError}</span>}
-            {!repoLoading && repoId && (
-              <button
-                onClick={() => { setRepoName(''); resolveRepo(''); }}
-                className="text-gray-400 hover:text-gray-600 text-sm"
-                title="Clear"
-              >✕</button>
-            )}
-          </div>
-          <span className="mx-2 text-gray-300">|</span>
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500">Target:</span>
-            <input
-              type="text"
-              value={targetBranch}
-              placeholder="e.g. main"
-              onChange={(e) => {
-                setTargetBranch(e.target.value);
-                if (!e.target.value) localStorage.removeItem('pr-filter-target-branch');
-              }}
-              onBlur={() => { if (targetBranch) localStorage.setItem('pr-filter-target-branch', targetBranch); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') localStorage.setItem('pr-filter-target-branch', targetBranch); }}
-              className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-40"
-            />
-            {targetBranch && (
-              <button
-                onClick={() => { setTargetBranch(''); localStorage.removeItem('pr-filter-target-branch'); }}
-                className="text-gray-400 hover:text-gray-600 text-sm"
-                title="Clear"
-              >✕</button>
-            )}
+          <div className="ml-auto flex items-center gap-2">
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value as DateRange)}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 border-none cursor-pointer hover:bg-gray-200 transition-colors"
+            >
+              <option value="30">Last 30 days</option>
+              <option value="60">Last 60 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="180">Last 6 months</option>
+              <option value="365">Last year</option>
+              <option value="all">All time</option>
+            </select>
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-gray-500">Repo:</span>
+              <input
+                type="text"
+                value={repoName}
+                placeholder="Type repository name…"
+                onChange={(e) => { setRepoName(e.target.value); if (!e.target.value) resolveRepo(''); }}
+                onBlur={() => resolveRepo(repoName)}
+                onKeyDown={handleRepoKeyDown}
+                className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-56"
+                disabled={repoLoading}
+              />
+              {repoLoading && <span className="text-gray-400 text-xs animate-pulse">…</span>}
+              {repoError && <span className="text-red-500 text-xs">{repoError}</span>}
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-gray-500">Target:</span>
+              <input
+                type="text"
+                value={targetBranch}
+                placeholder="e.g. main"
+                onChange={(e) => {
+                  setTargetBranch(e.target.value);
+                  if (!e.target.value) localStorage.removeItem('pr-filter-target-branch');
+                }}
+                onBlur={() => { if (targetBranch) localStorage.setItem('pr-filter-target-branch', targetBranch); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') localStorage.setItem('pr-filter-target-branch', targetBranch); }}
+                className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-40"
+              />
+            </div>
           </div>
         </div>
 

@@ -175,7 +175,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
           ))}
         </select>
       ) : (
-        <span className="text-sm text-gray-400">No aliases</span>
+        <span className="text-sm text-gray-400">No lists</span>
       )}
 
       <button
@@ -183,7 +183,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
         className={`px-2 py-1.5 rounded-lg text-sm font-medium transition-colors ${
           popoutOpen ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
         }`}
-        title="Manage author aliases"
+        title="Manage author lists"
       >
         ⚙️ Manage
       </button>
@@ -196,7 +196,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
         >
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700">Manage Author Aliases</h3>
+            <h3 className="text-sm font-semibold text-gray-700">Manage Author Lists</h3>
             <button
               onClick={() => setPopoutOpen(false)}
               className="text-gray-400 hover:text-gray-600 text-sm"
@@ -212,7 +212,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
                 <input
                   type="text"
                   value={newName}
-                  placeholder="Alias name…"
+                  placeholder="List name…"
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setIsCreating(false); }}
                   autoFocus
@@ -226,7 +226,7 @@ export function AuthorAliasManager({ onChange }: AuthorAliasManagerProps) {
                 onClick={() => setIsCreating(true)}
                 className="px-2 py-1 rounded text-sm text-blue-600 hover:bg-blue-50"
               >
-                + New alias
+                + New list
               </button>
             )}
 
