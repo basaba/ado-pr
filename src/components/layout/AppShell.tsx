@@ -24,6 +24,16 @@ export function AppShell() {
               >
                 My PRs
               </Link>
+              <Link
+                to="/create"
+                className={`px-3 py-1 rounded text-sm no-underline ${
+                  location.pathname === '/create'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                ＋ New PR
+              </Link>
             </nav>
           )}
         </div>

@@ -44,6 +44,7 @@ async function proxyRequest(req: IncomingMessage, res: ServerResponse, targetUrl
 }
 
 export default defineConfig({
+  server: { port: 5173, strictPort: true },
   plugins: [
     react(),
     tailwindcss(),
