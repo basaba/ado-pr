@@ -5,6 +5,11 @@ import { Badge, Spinner } from '../common';
 import { DiffViewer } from '../diff-viewer/DiffViewer';
 import type { PullRequestThread, IterationChange } from '../../types';
 
+/** Extract the display path from an iteration change, falling back to originalPath for deletes */
+function changePath(change: IterationChange): string | undefined {
+  return change.item?.path ?? change.originalPath;
+}
+
 export interface FileNavigateTarget {
   filePath: string;
   line?: number;
@@ -36,8 +41,9 @@ function buildFileTree(
   const root: TreeNode = { name: '', path: '', children: [], threadCount: 0 };
 
   for (const change of changes) {
-    if (!change.item?.path) continue;
-    const parts = change.item.path.replace(/^\//, '').split('/');
+    const filePath = changePath(change);
+    if (!filePath) continue;
+    const parts = filePath.replace(/^\//, '').split('/');
     let node = root;
 
     for (let i = 0; i < parts.length; i++) {
@@ -52,7 +58,7 @@ function buildFileTree(
     }
 
     node.change = change;
-    node.threadCount = (threadsByFile[change.item.path] || []).length;
+    node.threadCount = (threadsByFile[filePath] || []).length;
   }
 
   // Collapse single-child directories (e.g. src/api → src/api)
@@ -98,7 +104,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
     setSelectedFile(filePath);
     setFileContent(null);
     setLoadingFile(true);
-    const changeType = diff.changes.find((c) => c.item?.path === filePath)?.changeType;
+    const changeType = diff.changes.find((c) => changePath(c) === filePath)?.changeType;
     diff.fetchFilePair(filePath, changeType)
       .then((content) => setFileContent(content))
       .catch(() => setFileContent({ oldContent: '', newContent: '' }))
@@ -129,7 +135,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
       setSelectedFile(path);
       setFileContent(null);
       setLoadingFile(true);
-      const changeType = diff.changes.find((c) => c.item?.path === path)?.changeType;
+      const changeType = diff.changes.find((c) => changePath(c) === path)?.changeType;
       try {
         const content = await diff.fetchFilePair(path, changeType);
         setFileContent(content);
@@ -157,7 +163,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
     return <p className="text-gray-400 text-sm italic">No file changes found.</p>;
   }
 
-  const selectedChange = diff.changes.find((c) => c.item.path === selectedFile);
+  const selectedChange = diff.changes.find((c) => changePath(c) === selectedFile);
   const fileThreads = selectedFile ? threadsByFile[selectedFile] || [] : [];
 
   return (
@@ -281,9 +287,9 @@ function FileTreeNode({
         title={node.path}
       >
         <span className={`shrink-0 ${changeColor[node.change!.changeType] || 'text-gray-400'}`}>
-          {node.change!.changeType === 'add' ? '●' : node.change!.changeType === 'delete' ? '●' : '●'}
+          {node.change!.changeType === 'add' ? '+' : node.change!.changeType === 'delete' ? '−' : '●'}
         </span>
-        <span className="truncate">{node.name}</span>
+        <span className={`truncate ${node.change!.changeType === 'delete' ? 'line-through opacity-60' : ''}`}>{node.name}</span>
         {node.threadCount > 0 && (
           <span className="shrink-0 ml-auto text-blue-500 text-[10px]">💬{node.threadCount}</span>
         )}

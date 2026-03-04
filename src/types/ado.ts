@@ -104,7 +104,7 @@ export interface IterationChange {
     url?: string;
     objectId?: string;
     originalObjectId?: string;
-  };
+  } | null;
   changeType: 'add' | 'edit' | 'delete' | 'rename';
   originalPath?: string;
 }
