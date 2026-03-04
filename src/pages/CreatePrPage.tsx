@@ -6,6 +6,7 @@ import {
   listBranches,
   createPullRequest,
   searchUsers,
+  resolveIdentityId,
 } from '../api';
 import type { GitRepository } from '../types';
 import type { GitRef, UserSearchResult } from '../api/pullRequests';
@@ -151,14 +152,18 @@ export function CreatePrPage() {
         .filter(Boolean)
         .map((id) => ({ id }));
 
+      const resolvedReviewers = await Promise.all(
+        selectedReviewers
+          .filter((r) => r.descriptor)
+          .map(async (r) => ({ id: await resolveIdentityId(r.descriptor!) })),
+      );
+
       const pr = await createPullRequest(selectedRepo.id, {
         sourceRefName: `refs/heads/${sourceBranch}`,
         targetRefName: `refs/heads/${targetBranch}`,
         title: title.trim(),
         description: description.trim() || undefined,
-        reviewers: selectedReviewers.length > 0
-          ? selectedReviewers.map((r) => ({ id: r.id }))
-          : undefined,
+        reviewers: resolvedReviewers.length > 0 ? resolvedReviewers : undefined,
         isDraft,
         workItemRefs: workItemRefs.length > 0 ? workItemRefs : undefined,
       });

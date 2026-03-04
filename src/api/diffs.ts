@@ -74,7 +74,7 @@ export async function getFileContentByBranch(
 
 export interface BranchDiffChange {
   changeType: 'add' | 'edit' | 'delete' | 'rename';
-  item: { path: string };
+  item: { path: string; isFolder?: boolean };
   originalPath?: string;
 }
 
@@ -93,7 +93,7 @@ export async function getBranchDiff(
       'targetVersionType': 'branch',
     },
   );
-  return data.changes ?? [];
+  return (data.changes ?? []).filter(c => !c.item.isFolder);
 }
 
 // Fetch raw text content via full URL
