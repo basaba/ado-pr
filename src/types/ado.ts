@@ -128,6 +128,23 @@ export interface AdoListResponse<T> {
   count: number;
 }
 
+export interface PolicyEvaluation {
+  evaluationId: string;
+  configuration: {
+    id: number;
+    type: { id: string; displayName: string };
+    isEnabled: boolean;
+    isBlocking: boolean;
+    settings?: Record<string, unknown>;
+  };
+  status: 'queued' | 'running' | 'approved' | 'rejected' | 'notApplicable' | 'broken';
+  context?: {
+    buildId?: number;
+    buildDefinitionName?: string;
+    isExpired?: boolean;
+  };
+}
+
 export type VoteValue = 10 | 5 | 0 | -5 | -10;
 
 export const VOTE_LABELS: Record<number, string> = {

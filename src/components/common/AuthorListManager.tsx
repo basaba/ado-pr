@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loadLists, loadSelectedList, SELECTED_KEY } from './authorListStore';
+import { loadLists, SELECTED_KEY } from './authorListStore';
 
 interface Author {
   id: string;

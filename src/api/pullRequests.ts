@@ -6,6 +6,7 @@ import type {
   GitRepository,
   IdentityRef,
   VoteValue,
+  PolicyEvaluation,
 } from '../types';
 
 const prBasePath = (repoId: string, prId: number) =>
@@ -224,6 +225,34 @@ export async function cancelAutoComplete(
   return adoClient.patch<PullRequest>(prBasePath(repoId, prId), {
     autoCompleteSetBy: { id: '' },
   });
+}
+
+/** Fetch policy evaluations for a pull request */
+export async function getPolicyEvaluations(
+  projectId: string,
+  prId: number,
+): Promise<PolicyEvaluation[]> {
+  const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
+  const data = await adoClient.get<AdoListResponse<PolicyEvaluation>>(
+    '/policy/evaluations',
+    { artifactId, 'api-version': '7.1-preview' },
+  );
+  return data.value ?? [];
+}
+
+/** Requeue a policy evaluation */
+export async function requeuePolicyEvaluation(
+  evaluationId: string,
+): Promise<PolicyEvaluation> {
+  const url = new URL(`${window.location.origin}${adoClient.baseUrl}/policy/evaluations/${evaluationId}`);
+  url.searchParams.set('api-version', '7.1-preview');
+  const headers: Record<string, string> = {
+    ...adoClient.headers,
+    'X-Ado-Org-Url': adoClient.orgUrl,
+  };
+  const res = await fetch(url.toString(), { method: 'PATCH', headers });
+  if (!res.ok) throw new Error(`Requeue failed: ${res.status} ${res.statusText}`);
+  return res.json();
 }
 
 export interface RepoPagedResult {

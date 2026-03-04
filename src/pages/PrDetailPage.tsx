@@ -4,15 +4,16 @@ import { getPullRequest, votePullRequest, completePullRequest, abandonPullReques
 import { useAuth } from '../context';
 import { useThreads, useDiff } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
-import { Spinner, ErrorBanner, Button, Badge, SplitButton } from '../components/common';
+import { Spinner, ErrorBanner, Badge, SplitButton } from '../components/common';
 import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName, buildUsersMap } from '../utils';
 import { OverviewTab } from '../components/pr-detail/OverviewTab';
 import { FilesTab } from '../components/pr-detail/FilesTab';
 import type { FileNavigateTarget } from '../components/pr-detail/FilesTab';
 import { ThreadsTab } from '../components/pr-detail/ThreadsTab';
+import { PoliciesTab } from '../components/pr-detail/PoliciesTab';
 
-type Tab = 'overview' | 'files' | 'threads';
+type Tab = 'overview' | 'files' | 'threads' | 'policies';
 
 export function PrDetailPage() {
   const { repoId, prId } = useParams<{ repoId: string; prId: string }>();
@@ -126,6 +127,7 @@ export function PrDetailPage() {
       label: 'Threads',
       count: threads.threads.filter((t) => t.status === 'active').length,
     },
+    { id: 'policies', label: 'Policies' },
   ];
 
   return (
@@ -245,6 +247,9 @@ export function PrDetailPage() {
                 setActiveTab('files');
               }}
             />
+          )}
+          {activeTab === 'policies' && (
+            <PoliciesTab prId={Number(prId)} />
           )}
         </div>
       </div>
