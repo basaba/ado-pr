@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { copilotPlugin } from './src/server/copilot-middleware'
 
 async function proxyRequest(req: IncomingMessage, res: ServerResponse, targetUrl: string) {
   const headers: Record<string, string> = {};
@@ -48,6 +49,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    copilotPlugin(),
     {
       name: 'ado-proxy',
       configureServer(server) {

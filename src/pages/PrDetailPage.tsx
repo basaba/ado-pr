@@ -12,8 +12,9 @@ import { FilesTab } from '../components/pr-detail/FilesTab';
 import type { FileNavigateTarget } from '../components/pr-detail/FilesTab';
 import { ThreadsTab } from '../components/pr-detail/ThreadsTab';
 import { PoliciesTab } from '../components/pr-detail/PoliciesTab';
+import { CopilotTab } from '../components/pr-detail/CopilotTab';
 
-type Tab = 'overview' | 'files' | 'threads' | 'policies';
+type Tab = 'overview' | 'files' | 'threads' | 'policies' | 'copilot';
 
 export function PrDetailPage() {
   const { repoId, prId } = useParams<{ repoId: string; prId: string }>();
@@ -128,6 +129,7 @@ export function PrDetailPage() {
       count: threads.threads.filter((t) => t.status === 'active').length,
     },
     { id: 'policies', label: 'Policies' },
+    { id: 'copilot', label: 'Copilot' },
   ];
 
   return (
@@ -221,7 +223,7 @@ export function PrDetailPage() {
           ))}
         </div>
 
-        <div className={activeTab === 'files' ? 'p-0' : 'p-6'}>
+        <div className={activeTab === 'files' || activeTab === 'copilot' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
             <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} />
           )}
@@ -250,6 +252,9 @@ export function PrDetailPage() {
           )}
           {activeTab === 'policies' && (
             <PoliciesTab prId={Number(prId)} />
+          )}
+          {activeTab === 'copilot' && (
+            <CopilotTab pr={pr} threads={threads.threads} changes={diff.changes} />
           )}
         </div>
       </div>
