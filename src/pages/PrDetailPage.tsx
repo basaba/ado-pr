@@ -160,50 +160,19 @@ export function PrDetailPage() {
           </div>
         </div>
 
-        {/* Vote buttons */}
+        {/* Vote button */}
         <div className="flex gap-2 mt-4 border-t border-gray-100 pt-4">
-          <Button
-            variant="success"
-            size="sm"
+          <SplitButton
             disabled={voting}
-            onClick={() => handleVote(10)}
-          >
-            ✓ Approve
-          </Button>
-          <Button
-            variant="primary"
             size="sm"
-            disabled={voting}
-            onClick={() => handleVote(5)}
-          >
-            Approve w/ Suggestions
-          </Button>
-          <Button
-            variant="warning"
-            size="sm"
-            disabled={voting}
-            onClick={() => handleVote(-5)}
-          >
-            Wait for Author
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            disabled={voting}
-            onClick={() => handleVote(-10)}
-          >
-            ✗ Reject
-          </Button>
-          {myVote !== 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={voting}
-              onClick={() => handleVote(0)}
-            >
-              Reset Vote
-            </Button>
-          )}
+            options={[
+              { label: '✓ Approve', onClick: () => handleVote(10), variant: 'success' },
+              { label: '👍 Approve w/ Suggestions', onClick: () => handleVote(5), variant: 'primary' },
+              { label: '⏳ Wait for Author', onClick: () => handleVote(-5), variant: 'warning' },
+              { label: '✗ Reject', onClick: () => handleVote(-10), variant: 'danger' },
+              ...(myVote !== 0 ? [{ label: '↺ Reset Vote', onClick: () => handleVote(0), variant: 'ghost' as const }] : []),
+            ]}
+          />
         </div>
 
         {/* PR actions for owner */}

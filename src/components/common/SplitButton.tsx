@@ -49,7 +49,7 @@ export function SplitButton({ options, disabled, size = 'sm' }: Props) {
         ▾
       </Button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-[10rem]">
+        <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-[14rem]">
           {rest.map((opt) => (
             <button
               key={opt.label}
