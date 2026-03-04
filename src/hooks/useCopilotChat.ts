@@ -49,6 +49,20 @@ function buildPrContext(pr: PrContextInput): string {
     }
   }
 
+  if (pr.diffs.length) {
+    lines.push('', '## File Diffs');
+    let totalLen = 0;
+    const MAX_DIFF_CHARS = 60_000;
+    for (const d of pr.diffs) {
+      if (totalLen + d.diff.length > MAX_DIFF_CHARS) {
+        lines.push('', '(remaining diffs truncated for size)');
+        break;
+      }
+      lines.push('', '```diff', d.diff, '```');
+      totalLen += d.diff.length;
+    }
+  }
+
   if (pr.threads.length) {
     lines.push('', '## Active Review Threads');
     for (const t of pr.threads) {
@@ -82,17 +96,19 @@ export interface PrContextInput {
     filePath?: string;
     comments: { author: string; content: string }[];
   }[];
+  diffs: { path: string; diff: string }[];
 }
 
-export function useCopilotChat(prContext: PrContextInput): UseCopilotChatReturn {
+export function useCopilotChat(prContext: PrContextInput, ready = true): UseCopilotChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
 
-  // Create session on mount
+  // Create session once diffs are ready
   useEffect(() => {
+    if (!ready) return;
     let cancelled = false;
 
     async function init() {
@@ -135,7 +151,7 @@ export function useCopilotChat(prContext: PrContextInput): UseCopilotChatReturn 
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only on mount – prContext is stable for the PR
+  }, [ready]); // Create session when diffs are ready
 
   const sendMessage = useCallback(async (prompt: string) => {
     if (!sessionIdRef.current) return;

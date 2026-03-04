@@ -1,22 +1,29 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useCopilotChat } from '../../hooks';
 import type { PrContextInput, ChatMessage } from '../../hooks';
 import type { PullRequest, PullRequestThread, IterationChange } from '../../types';
+import { generateTextDiff } from '../../utils';
 import { Spinner } from '../common';
 
 interface CopilotTabProps {
   pr: PullRequest;
   threads: PullRequestThread[];
   changes: IterationChange[];
+  fetchFilePair: (path: string, changeType?: string) => Promise<{ oldContent: string; newContent: string }>;
 }
 
 function branchName(ref: string) {
   return ref.replace(/^refs\/heads\//, '');
 }
 
-function buildContext(pr: PullRequest, threads: PullRequestThread[], changes: IterationChange[]): PrContextInput {
+function buildContext(
+  pr: PullRequest,
+  threads: PullRequestThread[],
+  changes: IterationChange[],
+  diffs: { path: string; diff: string }[],
+): PrContextInput {
   return {
     title: pr.title,
     description: pr.description ?? '',
@@ -40,6 +47,7 @@ function buildContext(pr: PullRequest, threads: PullRequestThread[], changes: It
           .filter((c) => c.commentType === 'text')
           .map((c) => ({ author: c.author.displayName, content: c.content })),
       })),
+    diffs,
   };
 }
 
@@ -72,9 +80,49 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   );
 }
 
-export function CopilotTab({ pr, threads, changes }: CopilotTabProps) {
-  const prContext = buildContext(pr, threads, changes);
-  const { messages, sendMessage, isLoading, error, sessionReady } = useCopilotChat(prContext);
+export function CopilotTab({ pr, threads, changes, fetchFilePair }: CopilotTabProps) {
+  const [diffs, setDiffs] = useState<{ path: string; diff: string }[]>([]);
+  const [diffsReady, setDiffsReady] = useState(false);
+
+  // Fetch file diffs for all changes before creating the session
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDiffs() {
+      const filesToFetch = changes.filter((c) => c.item?.path);
+      const results: { path: string; diff: string }[] = [];
+
+      await Promise.all(
+        filesToFetch.map(async (change) => {
+          const path = change.item!.path;
+          try {
+            const { oldContent, newContent } = await fetchFilePair(path, change.changeType);
+            const diff = generateTextDiff(oldContent, newContent, path);
+            if (diff) results.push({ path, diff });
+          } catch {
+            // Skip files that fail to fetch
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        // Sort to match original file order
+        const pathOrder = filesToFetch.map((c) => c.item!.path);
+        results.sort((a, b) => pathOrder.indexOf(a.path) - pathOrder.indexOf(b.path));
+        setDiffs(results);
+        setDiffsReady(true);
+      }
+    }
+
+    loadDiffs();
+    return () => { cancelled = true; };
+  }, [changes, fetchFilePair]);
+
+  const prContext = useMemo(
+    () => buildContext(pr, threads, changes, diffs),
+    [pr, threads, changes, diffs],
+  );
+  const { messages, sendMessage, isLoading, error, sessionReady } = useCopilotChat(prContext, diffsReady);
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
