@@ -36,6 +36,7 @@ function buildFileTree(
   const root: TreeNode = { name: '', path: '', children: [], threadCount: 0 };
 
   for (const change of changes) {
+    if (!change.item?.path) continue;
     const parts = change.item.path.replace(/^\//, '').split('/');
     let node = root;
 
@@ -97,7 +98,8 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
     setSelectedFile(filePath);
     setFileContent(null);
     setLoadingFile(true);
-    diff.fetchFilePair(filePath)
+    const changeType = diff.changes.find((c) => c.item?.path === filePath)?.changeType;
+    diff.fetchFilePair(filePath, changeType)
       .then((content) => setFileContent(content))
       .catch(() => setFileContent({ oldContent: '', newContent: '' }))
       .finally(() => setLoadingFile(false));
@@ -127,8 +129,9 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
       setSelectedFile(path);
       setFileContent(null);
       setLoadingFile(true);
+      const changeType = diff.changes.find((c) => c.item?.path === path)?.changeType;
       try {
-        const content = await diff.fetchFilePair(path);
+        const content = await diff.fetchFilePair(path, changeType);
         setFileContent(content);
       } catch {
         setFileContent({ oldContent: '', newContent: '' });

@@ -32,13 +32,18 @@ export function useDiff(repoId: string, prId: number) {
   }, [refresh]);
 
   const fetchFilePair = useCallback(
-    async (path: string) => {
+    async (path: string, changeType?: string) => {
       if (!iterations.length) return { oldContent: '', newContent: '' };
       const lastIter = iterations[iterations.length - 1];
-      const [oldContent, newContent] = await Promise.all([
-        getFileContent(repoId, path, lastIter.targetRefCommit.commitId),
-        getFileContent(repoId, path, lastIter.sourceRefCommit.commitId),
-      ]);
+
+      // Skip fetching the side that doesn't exist for add/delete changes
+      const oldContent = changeType === 'add'
+        ? ''
+        : await getFileContent(repoId, path, lastIter.targetRefCommit.commitId);
+      const newContent = changeType === 'delete'
+        ? ''
+        : await getFileContent(repoId, path, lastIter.sourceRefCommit.commitId);
+
       return { oldContent, newContent };
     },
     [repoId, iterations],
