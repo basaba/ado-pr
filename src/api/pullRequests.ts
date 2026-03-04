@@ -255,6 +255,14 @@ export async function searchRepositoriesPaged(
   };
 }
 
+/** List all repositories in the current project */
+export async function listRepositories(): Promise<GitRepository[]> {
+  const data = await adoClient.get<AdoListResponse<GitRepository>>(
+    '/git/repositories',
+  );
+  return data.value ?? [];
+}
+
 /** Look up a repository by name using GET /git/repositories/{name} */
 export async function getRepositoryByName(
   name: string,
@@ -266,4 +274,39 @@ export async function getRepositoryByName(
   } catch {
     return undefined;
   }
+}
+
+export interface GitRef {
+  name: string;      // e.g. "refs/heads/main"
+  objectId: string;
+}
+
+/** List branches for a repository */
+export async function listBranches(repoId: string): Promise<GitRef[]> {
+  const data = await adoClient.get<AdoListResponse<GitRef>>(
+    `/git/repositories/${repoId}/refs`,
+    { filter: 'heads/' },
+  );
+  return data.value ?? [];
+}
+
+export interface CreatePullRequestBody {
+  sourceRefName: string;
+  targetRefName: string;
+  title: string;
+  description?: string;
+  reviewers?: { id: string }[];
+  isDraft?: boolean;
+  workItemRefs?: { id: string }[];
+}
+
+/** Create a new pull request */
+export async function createPullRequest(
+  repoId: string,
+  body: CreatePullRequestBody,
+): Promise<PullRequest> {
+  return adoClient.post<PullRequest>(
+    `/git/repositories/${repoId}/pullrequests`,
+    body,
+  );
 }

@@ -50,6 +50,52 @@ export async function getFileContent(
   }
 }
 
+/** Fetch file content at a specific branch */
+export async function getFileContentByBranch(
+  repoId: string,
+  path: string,
+  branch: string,
+): Promise<string> {
+  try {
+    return await adoClient.get<string>(
+      `/git/repositories/${repoId}/items`,
+      {
+        path,
+        'versionDescriptor.version': branch,
+        'versionDescriptor.versionType': 'branch',
+        includeContent: 'true',
+        $format: 'text',
+      },
+    ) as unknown as string;
+  } catch {
+    return '';
+  }
+}
+
+export interface BranchDiffChange {
+  changeType: 'add' | 'edit' | 'delete' | 'rename';
+  item: { path: string };
+  originalPath?: string;
+}
+
+/** Get the diff (changed files) between two branches */
+export async function getBranchDiff(
+  repoId: string,
+  sourceBranch: string,
+  targetBranch: string,
+): Promise<BranchDiffChange[]> {
+  const data = await adoClient.get<{ changes: BranchDiffChange[] }>(
+    `/git/repositories/${repoId}/diffs/commits`,
+    {
+      'baseVersion': targetBranch,
+      'baseVersionType': 'branch',
+      'targetVersion': sourceBranch,
+      'targetVersionType': 'branch',
+    },
+  );
+  return data.changes ?? [];
+}
+
 // Fetch raw text content via full URL
 export async function getFileContentByUrl(url: string): Promise<string> {
   try {
