@@ -5,12 +5,27 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ToolCall {
+  toolCallId: string;
+  toolName: string;
+  status: 'running' | 'complete';
+  result?: string;
+}
+
+export interface TurnState {
+  intent: string | null;
+  reasoning: string;
+  toolCalls: ToolCall[];
+  isThinking: boolean;
+}
+
 interface UseCopilotChatReturn {
   messages: ChatMessage[];
   sendMessage: (prompt: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
   sessionReady: boolean;
+  turnState: TurnState;
 }
 
 /**
@@ -99,11 +114,14 @@ export interface PrContextInput {
   diffs: { path: string; diff: string }[];
 }
 
-export function useCopilotChat(prContext: PrContextInput, ready = true): UseCopilotChatReturn {
+const EMPTY_TURN_STATE: TurnState = { intent: null, reasoning: '', toolCalls: [], isThinking: false };
+
+export function useCopilotChat(prContext: PrContextInput, ready = true, repoPath?: string): UseCopilotChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
+  const [turnState, setTurnState] = useState<TurnState>(EMPTY_TURN_STATE);
   const sessionIdRef = useRef<string | null>(null);
 
   // Create session once diffs are ready
@@ -118,6 +136,7 @@ export function useCopilotChat(prContext: PrContextInput, ready = true): UseCopi
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prContext: buildPrContext(prContext),
+            repoPath,
           }),
         });
         if (!res.ok) {
@@ -158,6 +177,7 @@ export function useCopilotChat(prContext: PrContextInput, ready = true): UseCopi
 
     setError(null);
     setIsLoading(true);
+    setTurnState(EMPTY_TURN_STATE);
     setMessages((prev) => [...prev, { role: 'user', content: prompt }]);
 
     // Add placeholder for assistant
@@ -196,24 +216,105 @@ export function useCopilotChat(prContext: PrContextInput, ready = true): UseCopi
           const payload = line.slice(6);
           try {
             const parsed = JSON.parse(payload);
-            if (parsed.error) {
-              setError(parsed.error);
-              break;
-            }
-            if (parsed.delta) {
-              setMessages((prev) => {
-                const updated = [...prev];
-                const last = updated[updated.length - 1];
-                if (last?.role === 'assistant') {
-                  updated[updated.length - 1] = {
-                    ...last,
-                    content: last.content + parsed.delta,
-                  };
+            const eventType: string = parsed.type;
+
+            switch (eventType) {
+              case 'turn_start':
+                setTurnState((prev) => ({ ...prev, isThinking: true }));
+                break;
+
+              case 'turn_end':
+                setTurnState((prev) => ({ ...prev, isThinking: false, intent: null }));
+                break;
+
+              case 'intent':
+                setTurnState((prev) => ({ ...prev, intent: parsed.intent }));
+                break;
+
+              case 'reasoning_delta':
+                setTurnState((prev) => ({
+                  ...prev,
+                  reasoning: prev.reasoning + (parsed.delta ?? ''),
+                }));
+                break;
+
+              case 'reasoning':
+                setTurnState((prev) => ({ ...prev, reasoning: parsed.content ?? '' }));
+                break;
+
+              case 'message_delta':
+                if (parsed.delta) {
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const last = updated[updated.length - 1];
+                    if (last?.role === 'assistant') {
+                      updated[updated.length - 1] = {
+                        ...last,
+                        content: last.content + parsed.delta,
+                      };
+                    }
+                    return updated;
+                  });
                 }
-                return updated;
-              });
+                break;
+
+              case 'tool_start':
+                setTurnState((prev) => ({
+                  ...prev,
+                  toolCalls: [
+                    ...prev.toolCalls,
+                    {
+                      toolCallId: parsed.toolCallId,
+                      toolName: parsed.toolName,
+                      status: 'running',
+                    },
+                  ],
+                }));
+                break;
+
+              case 'tool_complete':
+                setTurnState((prev) => ({
+                  ...prev,
+                  toolCalls: prev.toolCalls.map((tc) =>
+                    tc.toolCallId === parsed.toolCallId
+                      ? { ...tc, status: 'complete' as const, result: parsed.result }
+                      : tc,
+                  ),
+                }));
+                break;
+
+              case 'session_error':
+                setError(parsed.message);
+                break;
+
+              case 'error':
+                setError(parsed.message);
+                break;
+
+              case 'done':
+                // Final message – streaming is complete
+                break;
+
+              default:
+                // Legacy fallback for untyped payloads
+                if (parsed.delta) {
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const last = updated[updated.length - 1];
+                    if (last?.role === 'assistant') {
+                      updated[updated.length - 1] = {
+                        ...last,
+                        content: last.content + parsed.delta,
+                      };
+                    }
+                    return updated;
+                  });
+                }
+                if (parsed.error) {
+                  setError(parsed.error);
+                }
+                break;
             }
-            // parsed.done is the final message – streaming is complete
           } catch {
             // ignore malformed SSE
           }
@@ -231,8 +332,9 @@ export function useCopilotChat(prContext: PrContextInput, ready = true): UseCopi
       });
     } finally {
       setIsLoading(false);
+      setTurnState((prev) => ({ ...prev, isThinking: false }));
     }
   }, []);
 
-  return { messages, sendMessage, isLoading, error, sessionReady };
+  return { messages, sendMessage, isLoading, error, sessionReady, turnState };
 }

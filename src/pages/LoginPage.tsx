@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { Button } from '../components/common';
@@ -10,11 +10,22 @@ export function LoginPage() {
   const [orgUrl, setOrgUrl] = useState('');
   const [project, setProject] = useState('');
   const [pat, setPat] = useState('');
+  const [repoPath, setRepoPath] = useState('');
+
+  // Pre-populate repo path from env var
+  useEffect(() => {
+    fetch('/copilot-api/repo-path')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.repoPath) setRepoPath(data.repoPath);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await login({ orgUrl, project, pat });
+      await login({ orgUrl, project, pat, repoPath: repoPath || undefined });
       navigate('/');
     } catch {
       // error shown via context
@@ -64,6 +75,23 @@ export function LoginPage() {
           />
           <p className="text-xs text-gray-500 mt-1">
             Needs <strong>Code (Read &amp; Write)</strong> scope.
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Local Repo Path <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            placeholder="/path/to/local/repo"
+            value={repoPath}
+            onChange={(e) => setRepoPath(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            When set, Copilot can explore files in this directory during reviews.
+            Auto-populated from <code className="bg-gray-100 px-1 rounded">ADO_PR_REPO_PATH</code> env var.
           </p>
         </div>
 

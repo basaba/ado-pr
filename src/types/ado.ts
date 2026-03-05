@@ -4,6 +4,7 @@ export interface AdoConfig {
   orgUrl: string;    // e.g. https://dev.azure.com/myorg
   project: string;
   pat: string;
+  repoPath?: string; // optional local repo path for Copilot file access
 }
 
 export interface IdentityRef {
