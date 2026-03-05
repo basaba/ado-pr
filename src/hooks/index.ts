@@ -1,5 +1,5 @@
 export { usePullRequests } from './usePullRequests';
 export { useThreads } from './useThreads';
 export { useDiff } from './useDiff';
-export { useCopilotChat } from './useCopilotChat';
-export type { PrContextInput, ChatMessage, ToolCall, TurnState } from './useCopilotChat';
+export { useCopilotTerminal } from './useCopilotTerminal';
+export type { UseCopilotTerminalOptions, UseCopilotTerminalReturn } from './useCopilotTerminal';

@@ -1,28 +1,19 @@
 import type { Plugin } from 'vite';
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { stat } from 'node:fs/promises';
+import type { ServerResponse } from 'node:http';
+import { resolve } from 'node:path';
+import { chmodSync } from 'node:fs';
+import { WebSocketServer, type WebSocket } from 'ws';
 
-// Lazy-import the SDK so the module only loads when the middleware is hit.
-// This avoids top-level ESM issues during Vite config resolution.
-async function loadSdk() {
-  const { CopilotClient, approveAll } = await import('@github/copilot-sdk');
-  return { CopilotClient, approveAll };
-}
+// node-pty's prebuilt spawn-helper may lack +x after npm install on macOS.
+try {
+  const helper = resolve(process.cwd(), 'node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper');
+  chmodSync(helper, 0o755);
+} catch { /* not on darwin-arm64, or already fine */ }
 
-interface ManagedSession {
-  client: InstanceType<Awaited<ReturnType<typeof loadSdk>>['CopilotClient']>;
-  session: Awaited<ReturnType<InstanceType<Awaited<ReturnType<typeof loadSdk>>['CopilotClient']>['createSession']>>;
-}
-
-const sessions = new Map<string, ManagedSession>();
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => chunks.push(c));
-    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
-    req.on('error', reject);
-  });
+// Lazy-load node-pty to avoid native-module issues at config-resolution time
+async function loadPty() {
+  const mod = await import('node-pty');
+  return mod.default ?? mod;
 }
 
 function json(res: ServerResponse, status: number, data: unknown) {
@@ -30,189 +21,134 @@ function json(res: ServerResponse, status: number, data: unknown) {
   res.end(JSON.stringify(data));
 }
 
+/**
+ * Resolve the copilot binary. node-pty can't exec Node wrapper scripts,
+ * so we use the platform-specific native binary when available.
+ */
+function copilotBin(): { file: string; prefixArgs: string[] } {
+  const platformBin = `copilot-${process.platform}-${process.arch}`;
+  const nativePath = resolve(process.cwd(), 'node_modules/.bin', platformBin);
+  try {
+    chmodSync(nativePath, 0o755); // ensure executable
+    return { file: nativePath, prefixArgs: [] };
+  } catch {
+    // Fallback: run the Node wrapper via the node executable
+    return {
+      file: process.execPath,
+      prefixArgs: [resolve(process.cwd(), 'node_modules/.bin/copilot')],
+    };
+  }
+}
+
 export function copilotPlugin(): Plugin {
   return {
-    name: 'copilot-api',
+    name: 'copilot-pty',
     configureServer(server) {
       // ── Return default repo path from env var ───────────────────────
       server.middlewares.use('/copilot-api/repo-path', (_req, res) => {
         json(res, 200, { repoPath: process.env.ADO_PR_REPO_PATH ?? '' });
       });
 
-      // ── Create session ──────────────────────────────────────────────
-      server.middlewares.use('/copilot-api/session', async (req, res) => {
-        if (req.method === 'DELETE') {
-          // Destroy session
-          const body = JSON.parse(await readBody(req));
-          const id: string = body.sessionId;
-          const managed = sessions.get(id);
-          if (managed) {
-            try { await managed.session.destroy(); } catch { /* ignore */ }
-            try { await managed.client.stop(); } catch { /* ignore */ }
-            sessions.delete(id);
-          }
-          json(res, 200, { ok: true });
-          return;
-        }
+      // ── WebSocket server for PTY sessions ───────────────────────────
+      const wss = new WebSocketServer({ noServer: true });
 
-        if (req.method !== 'POST') {
-          json(res, 405, { error: 'Method not allowed' });
-          return;
-        }
-
-        try {
-          const { CopilotClient, approveAll } = await loadSdk();
-          const body = JSON.parse(await readBody(req));
-          const prContext: string = body.prContext ?? '';
-          const repoPath: string | undefined = body.repoPath;
-
-          // Validate the repo path if provided
-          let useLocalRepo = false;
-          if (repoPath) {
-            try {
-              const s = await stat(repoPath);
-              useLocalRepo = s.isDirectory();
-            } catch {
-              // Path doesn't exist or isn't accessible — fall back to no local context
-            }
-          }
-
-          const client = new CopilotClient();
-          await client.start();
-
-          // const systemContent = useLocalRepo
-          //   ? `${prContext}\n\n## Local Repository\nThe local repository is available at: ${repoPath}\nYou can explore files, search code, and read file contents from this directory to provide deeper code review insights.`
-          //   : prContext;
-
-          const session = await client.createSession({
-            model: body.model ?? 'claude-opus-4.6',
-            streaming: true,
-            onPermissionRequest: approveAll,
-            systemMessage: {
-              mode: 'append',
-              content: prContext,
-            },
-            // When a local repo path is provided, allow the SDK's built-in tools
-            // so Copilot can explore files on demand. Otherwise disable tools.
-            ...(useLocalRepo ? { workingDirectory: repoPath } : { availableTools: [] }),
-            infiniteSessions: { enabled: false },
+      server.httpServer?.on('upgrade', (req, socket, head) => {
+        if (req.url === '/copilot-pty') {
+          wss.handleUpgrade(req, socket, head, (ws) => {
+            wss.emit('connection', ws, req);
           });
-
-          const id = session.sessionId;
-          sessions.set(id, { client, session });
-
-          json(res, 200, { sessionId: id });
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          json(res, 500, { error: msg });
         }
       });
 
-      // ── Send message (SSE streaming) ────────────────────────────────
-      server.middlewares.use('/copilot-api/message', async (req, res) => {
-        if (req.method !== 'POST') {
-          json(res, 405, { error: 'Method not allowed' });
-          return;
-        }
+      wss.on('connection', (ws: WebSocket) => {
+        let ptyProcess: ReturnType<Awaited<ReturnType<typeof loadPty>>['spawn']> | null = null;
+        let initialized = false;
 
-        try {
-          const body = JSON.parse(await readBody(req));
-          const id: string = body.sessionId;
-          const prompt: string = body.prompt;
+        ws.on('message', async (raw) => {
+          const msg = raw.toString();
 
-          const managed = sessions.get(id);
-          if (!managed) {
-            json(res, 404, { error: 'Session not found' });
+          // First message must be the init payload with config
+          if (!initialized) {
+            try {
+              const config = JSON.parse(msg) as {
+                prContext?: string;
+                repoPath?: string;
+                cols?: number;
+                rows?: number;
+              };
+              initialized = true;
+
+              const pty = await loadPty();
+              const copilotArgs: string[] = ['--allow-all'];
+              if (config.repoPath) {
+                copilotArgs.push('--add-dir', config.repoPath);
+              }
+
+              const { file, prefixArgs } = copilotBin();
+              ptyProcess = pty.spawn(file, [...prefixArgs, ...copilotArgs], {
+                name: 'xterm-256color',
+                cols: config.cols ?? 120,
+                rows: config.rows ?? 30,
+                cwd: config.repoPath || process.cwd(),
+                env: { ...process.env } as Record<string, string>,
+              });
+
+              // Pipe PTY output → WebSocket
+              ptyProcess.onData((data: string) => {
+                if (ws.readyState === ws.OPEN) {
+                  ws.send(JSON.stringify({ type: 'output', data }));
+                }
+              });
+
+              ptyProcess.onExit(({ exitCode, signal }) => {
+                if (ws.readyState === ws.OPEN) {
+                  ws.send(JSON.stringify({ type: 'exit', exitCode, signal }));
+                  ws.close();
+                }
+              });
+
+              // If PR context was provided, feed it as the first prompt
+              if (config.prContext) {
+                // Small delay so the copilot CLI has time to initialize
+                setTimeout(() => {
+                  if (ptyProcess) {
+                    ptyProcess.write(config.prContext + '\n');
+                  }
+                }, 2000);
+              }
+            } catch (err) {
+              const errMsg = err instanceof Error ? err.message : String(err);
+              ws.send(JSON.stringify({ type: 'error', message: errMsg }));
+              ws.close();
+            }
             return;
           }
 
-          // SSE headers
-          res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            Connection: 'keep-alive',
-          });
+          // Subsequent messages are either stdin input or control commands
+          try {
+            const parsed = JSON.parse(msg) as
+              | { type: 'input'; data: string }
+              | { type: 'resize'; cols: number; rows: number };
 
-          const { session } = managed;
-
-          function sse(type: string, payload: Record<string, unknown>) {
-            res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
+            if (parsed.type === 'input' && ptyProcess) {
+              ptyProcess.write(parsed.data);
+            } else if (parsed.type === 'resize' && ptyProcess) {
+              ptyProcess.resize(parsed.cols, parsed.rows);
+            }
+          } catch {
+            // If not JSON, treat as raw stdin
+            if (ptyProcess) {
+              ptyProcess.write(msg);
+            }
           }
+        });
 
-          const unsubs: Array<() => void> = [];
-
-          // Turn lifecycle
-          unsubs.push(session.on('assistant.turn_start', () => {
-            sse('turn_start', {});
-          }));
-
-          unsubs.push(session.on('assistant.turn_end', () => {
-            sse('turn_end', {});
-          }));
-
-          // Intent
-          unsubs.push(session.on('assistant.intent', (event) => {
-            sse('intent', { intent: event.data.intent });
-          }));
-
-          // Reasoning (extended thinking)
-          unsubs.push(session.on('assistant.reasoning', (event) => {
-            sse('reasoning', { content: event.data.content });
-          }));
-
-          unsubs.push(session.on('assistant.reasoning_delta', (event) => {
-            sse('reasoning_delta', { delta: event.data.deltaContent });
-          }));
-
-          // Message content streaming
-          unsubs.push(session.on('assistant.message_delta', (event) => {
-            sse('message_delta', { delta: event.data.deltaContent });
-          }));
-
-          // Tool execution
-          unsubs.push(session.on('tool.execution_start', (event) => {
-            sse('tool_start', {
-              toolName: event.data.toolName,
-              toolCallId: event.data.toolCallId,
-            });
-          }));
-
-          unsubs.push(session.on('tool.execution_complete', (event) => {
-            sse('tool_complete', {
-              toolName: event.data.toolName,
-              toolCallId: event.data.toolCallId,
-              result: typeof event.data.result === 'string'
-                ? event.data.result.slice(0, 2000)
-                : JSON.stringify(event.data.result).slice(0, 2000),
-            });
-          }));
-
-          // Session error
-          unsubs.push(session.on('session.error', (event) => {
-            sse('session_error', { message: event.data.message });
-          }));
-
-          // Wait for completion
-          const finalMsg = await session.sendAndWait(
-            { prompt },
-            120_000, // 2 min timeout
-          );
-
-          for (const unsub of unsubs) unsub();
-
-          // Send final message
-          sse('done', { content: finalMsg?.data.content ?? '' });
-          res.end();
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          // If headers already sent, write error as SSE event
-          if (res.headersSent) {
-            res.write(`data: ${JSON.stringify({ type: 'error', message: msg })}\n\n`);
-            res.end();
-          } else {
-            json(res, 500, { error: msg });
+        ws.on('close', () => {
+          if (ptyProcess) {
+            try { ptyProcess.kill(); } catch { /* ignore */ }
+            ptyProcess = null;
           }
-        }
+        });
       });
     },
   };
