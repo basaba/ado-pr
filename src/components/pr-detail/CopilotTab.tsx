@@ -84,7 +84,7 @@ function buildPrContextString(
 
   lines.push(
     '',
-    'Please review this PR. Summarize the changes and highlight any issues you find.',
+    'Use the above PR context to answer the user\'s questions. Wait for the user to ask before taking any action.',
   );
 
   return lines.join('\n');
