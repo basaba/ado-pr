@@ -2,7 +2,8 @@ import { useMemo, useCallback, useState, useEffect, type RefObject } from 'react
 import type { DiffLine } from './DiffViewer';
 
 interface Marker {
-  position: number; // percentage (0–100)
+  startPos: number;  // percentage (0–100)
+  endPos: number;    // percentage (0–100)
   color: string;
   lineNum: number | null;
 }
@@ -38,30 +39,44 @@ export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef 
     const total = diffLines.length;
     if (total === 0) return [];
 
-    const result: Marker[] = [];
+    // Minimum visual height for a marker as a percentage of total
+    const minHeight = Math.max(0.4, (1 / total) * 100);
+    // Gap threshold: merge same-color markers within this distance
+    const mergeGap = Math.max(0.8, (2 / total) * 100);
+
+    const raw: Marker[] = [];
     for (let i = 0; i < total; i++) {
       const line = diffLines[i];
       const pos = (i / total) * 100;
 
       if (line.newLineNum && threadLineSet.has(line.newLineNum)) {
-        result.push({ position: pos, color: 'bg-blue-500', lineNum: line.newLineNum });
+        raw.push({ startPos: pos, endPos: pos, color: 'bg-blue-500', lineNum: line.newLineNum });
       } else if (line.type === 'added') {
-        result.push({ position: pos, color: 'bg-green-500', lineNum: line.newLineNum });
+        raw.push({ startPos: pos, endPos: pos, color: 'bg-green-500', lineNum: line.newLineNum });
       } else if (line.type === 'removed') {
-        result.push({ position: pos, color: 'bg-red-500', lineNum: line.oldLineNum });
+        raw.push({ startPos: pos, endPos: pos, color: 'bg-red-500', lineNum: line.oldLineNum });
       }
     }
 
-    // Consolidate markers that are very close together (< 0.5% apart) and same color
-    const consolidated: Marker[] = [];
-    for (const m of result) {
-      const last = consolidated[consolidated.length - 1];
-      if (last && last.color === m.color && m.position - last.position < 0.5) {
-        continue;
+    // Merge consecutive same-color markers that are close together into larger bars
+    const merged: Marker[] = [];
+    for (const m of raw) {
+      const last = merged[merged.length - 1];
+      if (last && last.color === m.color && m.startPos - last.endPos <= mergeGap) {
+        last.endPos = m.endPos;
+      } else {
+        merged.push({ ...m });
       }
-      consolidated.push(m);
     }
-    return consolidated;
+
+    // Enforce minimum height so tiny changes are still visible
+    for (const m of merged) {
+      if (m.endPos - m.startPos < minHeight) {
+        m.endPos = m.startPos + minHeight;
+      }
+    }
+
+    return merged;
   }, [diffLines, threadLineSet]);
 
   const handleClick = useCallback(
@@ -86,8 +101,8 @@ export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef 
         {markers.map((m, i) => (
           <div
             key={i}
-            className={`absolute w-full h-1 ${m.color} opacity-70 hover:opacity-100 cursor-pointer pointer-events-auto rounded-sm`}
-            style={{ top: `${m.position}%` }}
+            className={`absolute w-full ${m.color} opacity-70 hover:opacity-100 cursor-pointer pointer-events-auto rounded-sm`}
+            style={{ top: `${m.startPos}%`, height: `max(3px, ${m.endPos - m.startPos}%)` }}
             onClick={() => handleClick(m.lineNum)}
             title={m.color.includes('blue') ? `Comment at line ${m.lineNum}` : `Change at line ${m.lineNum ?? '?'}`}
           />
