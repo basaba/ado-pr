@@ -51,6 +51,7 @@ export interface Reviewer extends IdentityRef {
   vote: number; // 10=approved, 5=approvedWithSuggestions, 0=noVote, -5=waitingForAuthor, -10=rejected
   isRequired?: boolean;
   hasDeclined?: boolean;
+  isContainer?: boolean;
 }
 
 export interface PullRequestThread {

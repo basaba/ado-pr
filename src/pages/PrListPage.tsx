@@ -1,9 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePullRequests } from '../hooks';
-import { Spinner, ErrorBanner, Badge } from '../components/common';
+import { Spinner, ErrorBanner, Badge, ReviewerVotes } from '../components/common';
 import { AuthorListManager } from '../components/common/AuthorListManager';
-import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName } from '../utils';
 import { useAuth } from '../context';
 import type { PrSearchFilters } from '../api/pullRequests';
@@ -81,6 +80,7 @@ export function PrListPage() {
   const handlePresetClick = useCallback((id: PresetFilter) => {
     setPreset(id);
     setAuthorListActive(false);
+    setAuthors([]);
   }, []);
 
   const handleAuthorListActiveChange = useCallback((active: boolean) => {
@@ -217,11 +217,7 @@ export function PrListPage() {
 
       {!loading && !error && pullRequests.length > 0 && (
         <div className="bg-white rounded-lg shadow divide-y divide-gray-100">
-          {pullRequests.map((pr) => {
-            const myReview = pr.reviewers.find((r) => r.id === profile?.id);
-            const vote = myReview?.vote ?? 0;
-
-            return (
+          {pullRequests.map((pr) => (
               <div
                 key={pr.pullRequestId}
                 className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -240,13 +236,10 @@ export function PrListPage() {
                   </div>
                 </div>
                 <div className="ml-4 shrink-0">
-                  <span className={`text-xs font-medium ${VOTE_COLORS[vote] || 'text-gray-400'}`}>
-                    {VOTE_LABELS[vote] || 'No vote'}
-                  </span>
+                  <ReviewerVotes reviewers={pr.reviewers} currentUserId={profile?.id} />
                 </div>
               </div>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>

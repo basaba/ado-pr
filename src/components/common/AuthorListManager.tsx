@@ -18,29 +18,27 @@ export function AuthorListManager({ onChange, active, onActiveChange }: AuthorLi
   const [lists] = useState(() => loadLists());
   const [selected, setSelected] = useState<string | null>(null);
 
-  const currentAuthors = selected && active ? (lists[selected] ?? []) : [];
-
+  // Deselect and clear authors when parent deactivates (e.g. user clicks a preset)
   useEffect(() => {
-    onChange(currentAuthors);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, active, JSON.stringify(currentAuthors)]);
-
-  // Deselect when parent deactivates
-  useEffect(() => {
-    if (!active) setSelected(null);
-  }, [active]);
+    if (!active) {
+      setSelected(null);
+      onChange([]);
+    }
+  }, [active, onChange]);
 
   const handleSelect = useCallback((name: string) => {
     if (selected === name) {
       setSelected(null);
+      onChange([]);
       onActiveChange(false);
       localStorage.removeItem(SELECTED_KEY);
     } else {
       setSelected(name);
+      onChange(lists[name] ?? []);
       onActiveChange(true);
       localStorage.setItem(SELECTED_KEY, name);
     }
-  }, [selected, onActiveChange]);
+  }, [selected, onActiveChange, onChange, lists]);
 
   const listNames = Object.keys(lists);
 
