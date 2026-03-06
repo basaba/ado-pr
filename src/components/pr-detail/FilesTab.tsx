@@ -147,6 +147,24 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
     [selectedFile, diff],
   );
 
+  // Auto-select the first file when the file tree is ready and nothing is selected
+  useEffect(() => {
+    if (selectedFile || navigateTarget) return;
+    function firstLeaf(node: TreeNode): string | null {
+      for (const child of node.children) {
+        if (child.change) return child.path;
+        const found = firstLeaf(child);
+        if (found) return found;
+      }
+      return null;
+    }
+    const first = firstLeaf(fileTree);
+    if (first) {
+      handleFileClick(first);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileTree]);
+
   const toggleDir = useCallback((path: string) => {
     setCollapsedDirs((prev) => {
       const next = new Set(prev);
