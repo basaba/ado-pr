@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { useDiff, useThreads } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
-import { DiffViewer } from '../diff-viewer/DiffViewer';
+import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
 import type { PullRequestThread, IterationChange } from '../../types';
 
 /** Extract the display path from an iteration change, falling back to originalPath for deletes */
@@ -166,6 +166,20 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   const selectedChange = diff.changes.find((c) => changePath(c) === selectedFile);
   const fileThreads = selectedFile ? threadsByFile[selectedFile] || [] : [];
 
+  const diffLines = useMemo(
+    () => fileContent ? computeDiffLines(fileContent.oldContent, fileContent.newContent) : [],
+    [fileContent],
+  );
+
+  const fileThreadLineSet = useMemo(() => {
+    const set = new Set<number>();
+    fileThreads.forEach((t) => {
+      const line = t.threadContext?.rightFileStart?.line;
+      if (line) set.add(line);
+    });
+    return set;
+  }, [fileThreads]);
+
   return (
     <div className="flex gap-0">
       {/* File tree sidebar */}
@@ -188,58 +202,62 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
         </div>
       </div>
 
-      {/* Diff viewer area */}
-      <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-x-auto relative" style={{ height: 'calc(100vh - 220px)', overflowY: 'auto' }}>
-        {selectedFile && selectedChange ? (
-          <div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-              <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
-              <Badge
-                text={changeTypeLabel(selectedChange.changeType)}
-                color={changeTypeBadgeColor(selectedChange.changeType)}
-              />
-              {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
-              {fileThreads.length > 0 && (
-                <span className="text-xs text-blue-600">💬 {fileThreads.length}</span>
-              )}
+      {/* Diff viewer area — wrapper for scroll container + minimap */}
+      <div className="flex-1 min-w-0 relative" style={{ height: 'calc(100vh - 220px)' }}>
+        <div ref={scrollContainerRef} className="absolute inset-0 overflow-x-auto overflow-y-auto">
+          {selectedFile && selectedChange ? (
+            <div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
+                <Badge
+                  text={changeTypeLabel(selectedChange.changeType)}
+                  color={changeTypeBadgeColor(selectedChange.changeType)}
+                />
+                {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
+                {fileThreads.length > 0 && (
+                  <span className="text-xs text-blue-600">💬 {fileThreads.length}</span>
+                )}
+              </div>
+              {loadingFile ? (
+                <Spinner className="py-10" />
+              ) : fileContent ? (
+                <DiffViewer
+                  oldContent={fileContent.oldContent}
+                  newContent={fileContent.newContent}
+                  filePath={selectedFile}
+                  threads={fileThreads}
+                  scrollToLine={scrollToLine}
+                  onScrollHandled={() => setScrollToLine(undefined)}
+                  onAddComment={async (content, line) => {
+                    await threads.addThread(content, {
+                      filePath: selectedFile,
+                      rightFileStart: { line, offset: 1 },
+                      rightFileEnd: { line, offset: 1 },
+                    });
+                  }}
+                  onReply={threads.reply}
+                  onSetStatus={threads.setStatus}
+                  onDeleteComment={threads.removeComment}
+                  usersMap={usersMap}
+                  currentUserId={currentUserId}
+                  hiddenThreadIds={hiddenThreadIds}
+                  onToggleHideThread={(threadId) => setHiddenThreadIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(threadId)) next.delete(threadId);
+                    else next.add(threadId);
+                    return next;
+                  })}
+                />
+              ) : null}
             </div>
-            {loadingFile ? (
-              <Spinner className="py-10" />
-            ) : fileContent ? (
-              <DiffViewer
-                oldContent={fileContent.oldContent}
-                newContent={fileContent.newContent}
-                filePath={selectedFile}
-                threads={fileThreads}
-                scrollToLine={scrollToLine}
-                onScrollHandled={() => setScrollToLine(undefined)}
-                onAddComment={async (content, line) => {
-                  await threads.addThread(content, {
-                    filePath: selectedFile,
-                    rightFileStart: { line, offset: 1 },
-                    rightFileEnd: { line, offset: 1 },
-                  });
-                }}
-                onReply={threads.reply}
-                onSetStatus={threads.setStatus}
-                onDeleteComment={threads.removeComment}
-                usersMap={usersMap}
-                currentUserId={currentUserId}
-                hiddenThreadIds={hiddenThreadIds}
-                onToggleHideThread={(threadId) => setHiddenThreadIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(threadId)) next.delete(threadId);
-                  else next.add(threadId);
-                  return next;
-                })}
-                parentScrollRef={scrollContainerRef}
-              />
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-            Select a file to view changes
-          </div>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+              Select a file to view changes
+            </div>
+          )}
+        </div>
+        {diffLines.length > 0 && (
+          <ScrollbarMinimap diffLines={diffLines} threadLineSet={fileThreadLineSet} scrollContainerRef={scrollContainerRef} />
         )}
       </div>
     </div>

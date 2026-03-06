@@ -13,13 +13,21 @@ interface Props {
   scrollContainerRef: RefObject<HTMLDivElement | null>;
 }
 
+/**
+ * Renders change/comment markers alongside the scrollbar.
+ * Must be placed inside a position:relative wrapper that sits around the scroll container.
+ */
 export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef }: Props) {
   const [containerHeight, setContainerHeight] = useState(0);
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    const update = () => setContainerHeight(el.clientHeight);
+    const update = () => {
+      setContainerHeight(el.clientHeight);
+      setScrollbarWidth(el.offsetWidth - el.clientWidth);
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -71,8 +79,8 @@ export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef 
 
   return (
     <div
-      className="sticky top-0 right-0 z-20 pointer-events-none shrink-0"
-      style={{ height: containerHeight, marginLeft: -10, width: 10 }}
+      className="absolute top-0 z-20 pointer-events-none"
+      style={{ height: containerHeight, width: 10, right: scrollbarWidth }}
     >
       <div className="relative w-full h-full bg-gray-100/50 rounded-sm">
         {markers.map((m, i) => (

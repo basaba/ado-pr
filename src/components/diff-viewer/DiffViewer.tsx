@@ -1,8 +1,7 @@
-import { useState, useMemo, useRef, useEffect, useCallback, type RefObject } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
 import { MarkdownContent } from '../common';
-import { ScrollbarMinimap } from './ScrollbarMinimap';
 
 interface Props {
   oldContent: string;
@@ -17,7 +16,6 @@ interface Props {
   currentUserId?: string;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
-  parentScrollRef?: RefObject<HTMLDivElement | null>;
   scrollToLine?: number;
   onScrollHandled?: () => void;
 }
@@ -32,7 +30,7 @@ export interface DiffLine {
 /** Number of unchanged context lines to show around each change/comment */
 const CONTEXT_LINES = 3;
 
-function computeDiffLines(oldText: string, newText: string): DiffLine[] {
+export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
   const oldLines = oldText.split('\n');
   const newLines = newText.split('\n');
 
@@ -117,7 +115,6 @@ export function DiffViewer({
   currentUserId,
   hiddenThreadIds,
   onToggleHideThread,
-  parentScrollRef,
   scrollToLine,
   onScrollHandled,
 }: Props) {
@@ -251,8 +248,8 @@ export function DiffViewer({
   };
 
   return (
-    <div className="text-xs font-mono relative flex" ref={scrollContainerRef}>
-      <div className="flex-1 min-w-0 overflow-x-auto">
+    <div className="text-xs font-mono relative" ref={scrollContainerRef}>
+      <div className="min-w-0 overflow-x-auto">
         {hasCollapsed && (
           <div className="flex justify-end px-3 py-1.5 bg-gray-50 border-b border-gray-200 font-sans">
             <button
@@ -305,7 +302,6 @@ export function DiffViewer({
           </div>
         )}
       </div>
-      <ScrollbarMinimap diffLines={diffLines} threadLineSet={threadLineSet} scrollContainerRef={parentScrollRef ?? scrollContainerRef} />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getBranchDiff, getFileContentByBranch } from '../../api';
 import type { BranchDiffChange } from '../../api/diffs';
 import { Spinner, Badge } from '../common';
-import { DiffViewer } from '../diff-viewer/DiffViewer';
+import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 
 interface Props {
@@ -123,6 +123,13 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
 
   const selectedChange = changes.find((c) => c.item.path === selectedFile);
 
+  const diffLines = useMemo(
+    () => fileContent ? computeDiffLines(fileContent.oldContent, fileContent.newContent) : [],
+    [fileContent],
+  );
+
+  const emptyThreadLineSet = useMemo(() => new Set<number>(), []);
+
   return (
     <div className="flex gap-0 border border-gray-200 rounded-lg overflow-hidden">
       {/* File tree sidebar */}
@@ -145,36 +152,40 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
         </div>
       </div>
 
-      {/* Diff viewer area */}
-      <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-x-auto relative" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-        {selectedFile && selectedChange ? (
-          <div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-              <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
-              <Badge
-                text={changeTypeLabel(selectedChange.changeType)}
-                color={changeTypeBadgeColor(selectedChange.changeType)}
-              />
+      {/* Diff viewer area — wrapper for scroll container + minimap */}
+      <div className="flex-1 min-w-0 relative" style={{ maxHeight: '500px' }}>
+        <div ref={scrollContainerRef} className="h-full overflow-x-auto overflow-y-auto">
+          {selectedFile && selectedChange ? (
+            <div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
+                <Badge
+                  text={changeTypeLabel(selectedChange.changeType)}
+                  color={changeTypeBadgeColor(selectedChange.changeType)}
+                />
+              </div>
+              {loadingFile ? (
+                <Spinner className="py-10" />
+              ) : fileContent ? (
+                <DiffViewer
+                  oldContent={fileContent.oldContent}
+                  newContent={fileContent.newContent}
+                  filePath={selectedFile}
+                  threads={[]}
+                  onAddComment={noop}
+                  onReply={noop}
+                  onSetStatus={noop}
+                />
+              ) : null}
             </div>
-            {loadingFile ? (
-              <Spinner className="py-10" />
-            ) : fileContent ? (
-              <DiffViewer
-                oldContent={fileContent.oldContent}
-                newContent={fileContent.newContent}
-                filePath={selectedFile}
-                threads={[]}
-                onAddComment={noop}
-                onReply={noop}
-                onSetStatus={noop}
-                parentScrollRef={scrollContainerRef}
-              />
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-            Select a file to view changes
-          </div>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+              Select a file to view changes
+            </div>
+          )}
+        </div>
+        {diffLines.length > 0 && (
+          <ScrollbarMinimap diffLines={diffLines} threadLineSet={emptyThreadLineSet} scrollContainerRef={scrollContainerRef} />
         )}
       </div>
     </div>
