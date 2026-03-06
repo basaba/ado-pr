@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 import type { ServerResponse } from 'node:http';
-import { resolve, join } from 'node:path';
-import { chmodSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { chmodSync } from 'node:fs';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 // node-pty's prebuilt spawn-helper may lack +x after npm install on macOS.
@@ -63,8 +63,6 @@ export function copilotPlugin(): Plugin {
       wss.on('connection', (ws: WebSocket) => {
         let ptyProcess: ReturnType<Awaited<ReturnType<typeof loadPty>>['spawn']> | null = null;
         let initialized = false;
-        let instructionsFile: string | null = null;
-        let originalInstructions: Buffer | null = null;
 
         ws.on('message', async (raw) => {
           const msg = raw.toString();
@@ -88,16 +86,17 @@ export function copilotPlugin(): Plugin {
                 copilotArgs.push('--add-dir', config.repoPath);
               }
 
-              // Write PR context as copilot-instructions.md in the cwd's .github/
-              // so the CLI reads it as system-level context on startup.
+              // Inject PR context via -i so Copilot absorbs it as the first
+              // interactive prompt without modifying any repo files.
               if (config.prContext) {
-                const ghDir = join(cwd, '.github');
-                mkdirSync(ghDir, { recursive: true });
-                instructionsFile = join(ghDir, 'copilot-instructions.md');
-                try {
-                  originalInstructions = readFileSync(instructionsFile);
-                } catch { /* no existing file */ }
-                writeFileSync(instructionsFile, config.prContext);
+                const preamble = [
+                  'Below is context about the current Azure DevOps pull request.',
+                  'Read and remember it. Do NOT summarize, review, or take any action.',
+                  'Just respond with "Ready." and wait for my next message.',
+                  '',
+                  config.prContext,
+                ].join('\n');
+                copilotArgs.push('-i', preamble);
               }
 
               const { file, prefixArgs } = copilotBin();
@@ -153,18 +152,6 @@ export function copilotPlugin(): Plugin {
           if (ptyProcess) {
             try { ptyProcess.kill(); } catch { /* ignore */ }
             ptyProcess = null;
-          }
-          // Restore or remove the instructions file we injected
-          if (instructionsFile) {
-            try {
-              if (originalInstructions) {
-                writeFileSync(instructionsFile, originalInstructions);
-              } else {
-                rmSync(instructionsFile, { force: true });
-              }
-            } catch { /* ignore */ }
-            instructionsFile = null;
-            originalInstructions = null;
           }
         });
       });
