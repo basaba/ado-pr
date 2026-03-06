@@ -5,6 +5,40 @@ import { Badge, Spinner } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
 import type { PullRequestThread, IterationChange } from '../../types';
 
+/** Displays a path that scrolls horizontally on hover when it overflows */
+function ScrollingPath({ text }: { text: string }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [offset, setOffset] = useState(0);
+
+  const handleMouseEnter = () => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (outer && inner && inner.scrollWidth > outer.clientWidth) {
+      setOffset(inner.scrollWidth - outer.clientWidth);
+    }
+  };
+
+  const handleMouseLeave = () => setOffset(0);
+
+  return (
+    <div
+      ref={outerRef}
+      className="overflow-hidden min-w-0 flex-1"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <span
+        ref={innerRef}
+        className="font-mono text-sm text-gray-800 whitespace-nowrap inline-block transition-transform duration-500 ease-in-out"
+        style={{ transform: `translateX(-${offset}px)` }}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
 /** Extract the display path from an iteration change, falling back to originalPath for deletes */
 function changePath(change: IterationChange): string | undefined {
   return change.item?.path ?? change.originalPath;
@@ -226,7 +260,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
         {selectedFile && selectedChange ? (
           <div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-              <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
+              <ScrollingPath text={selectedFile} />
               <Badge
                 text={changeTypeLabel(selectedChange.changeType)}
                 color={changeTypeBadgeColor(selectedChange.changeType)}
