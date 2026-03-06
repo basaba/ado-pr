@@ -37,10 +37,19 @@ export function ScrollbarMinimap(props: Props) {
 
   useEffect(() => {
     if (props.sticky) {
-      const update = () => setContainerHeight(window.innerHeight);
+      const contentEl = props.contentRef.current;
+      const update = () => {
+        const contentHeight = contentEl?.scrollHeight ?? window.innerHeight;
+        setContainerHeight(Math.min(window.innerHeight, contentHeight));
+      };
       update();
       window.addEventListener('resize', update);
-      return () => window.removeEventListener('resize', update);
+      const ro = contentEl ? new ResizeObserver(update) : null;
+      if (contentEl) ro!.observe(contentEl);
+      return () => {
+        window.removeEventListener('resize', update);
+        ro?.disconnect();
+      };
     }
 
     const el = props.scrollContainerRef.current;
@@ -53,7 +62,7 @@ export function ScrollbarMinimap(props: Props) {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [props.sticky, props.sticky ? undefined : (props as ContainerProps).scrollContainerRef]);
+  }, [props.sticky, props.sticky ? (props as StickyProps).contentRef : (props as ContainerProps).scrollContainerRef]);
 
   const markers = useMemo(() => {
     const total = diffLines.length;
