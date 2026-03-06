@@ -202,7 +202,7 @@ export function PrDetailPage() {
 
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow">
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 sticky top-0 z-20 bg-white rounded-t-lg">
           {tabs.map((tab) => (
             <button
               key={tab.id}

@@ -93,8 +93,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [scrollToLine, setScrollToLine] = useState<number | undefined>();
   const [hiddenThreadIds, setHiddenThreadIds] = useState<Set<number>>(new Set());
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
+  const contentRef = useRef<HTMLDivElement>(null);
   // Handle external navigation (e.g. from Threads tab)
   useEffect(() => {
     if (!navigateTarget) return;
@@ -182,84 +181,86 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
 
   return (
     <div className="flex gap-0">
-      {/* File tree sidebar */}
-      <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto" style={{ height: 'calc(100vh - 220px)' }}>
-        <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200 sticky top-0 bg-gray-50 z-10">
-          {diff.changes.length} changed file{diff.changes.length !== 1 ? 's' : ''}
-        </div>
-        <div className="py-1">
-          {fileTree.children.map((node) => (
-            <FileTreeNode
-              key={node.path}
-              node={node}
-              depth={0}
-              selectedFile={selectedFile}
-              collapsedDirs={collapsedDirs}
-              onFileClick={handleFileClick}
-              onToggleDir={toggleDir}
-            />
-          ))}
+      {/* File tree sidebar — stretches full height, content is sticky */}
+      <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50">
+        <div className="sticky top-0 overflow-y-auto" style={{ maxHeight: '100vh' }}>
+          <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200 sticky top-0 bg-gray-50 z-10">
+            {diff.changes.length} changed file{diff.changes.length !== 1 ? 's' : ''}
+          </div>
+          <div className="py-1">
+            {fileTree.children.map((node) => (
+              <FileTreeNode
+                key={node.path}
+                node={node}
+                depth={0}
+                selectedFile={selectedFile}
+                collapsedDirs={collapsedDirs}
+                onFileClick={handleFileClick}
+                onToggleDir={toggleDir}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Diff viewer area — wrapper for scroll container + minimap */}
-      <div className="flex-1 min-w-0 relative" style={{ height: 'calc(100vh - 220px)' }}>
-        <div ref={scrollContainerRef} className="absolute inset-0 overflow-x-auto overflow-y-auto">
-          {selectedFile && selectedChange ? (
-            <div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
-                <Badge
-                  text={changeTypeLabel(selectedChange.changeType)}
-                  color={changeTypeBadgeColor(selectedChange.changeType)}
-                />
-                {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
-                {fileThreads.length > 0 && (
-                  <span className="text-xs text-blue-600">💬 {fileThreads.length}</span>
-                )}
-              </div>
-              {loadingFile ? (
-                <Spinner className="py-10" />
-              ) : fileContent ? (
-                <DiffViewer
-                  oldContent={fileContent.oldContent}
-                  newContent={fileContent.newContent}
-                  filePath={selectedFile}
-                  threads={fileThreads}
-                  scrollToLine={scrollToLine}
-                  onScrollHandled={() => setScrollToLine(undefined)}
-                  onAddComment={async (content, line) => {
-                    await threads.addThread(content, {
-                      filePath: selectedFile,
-                      rightFileStart: { line, offset: 1 },
-                      rightFileEnd: { line, offset: 1 },
-                    });
-                  }}
-                  onReply={threads.reply}
-                  onSetStatus={threads.setStatus}
-                  onDeleteComment={threads.removeComment}
-                  usersMap={usersMap}
-                  currentUserId={currentUserId}
-                  hiddenThreadIds={hiddenThreadIds}
-                  onToggleHideThread={(threadId) => setHiddenThreadIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(threadId)) next.delete(threadId);
-                    else next.add(threadId);
-                    return next;
-                  })}
-                />
-              ) : null}
+      {/* Diff viewer area — flows naturally with page scroll */}
+      <div className="flex-1 min-w-0" ref={contentRef}>
+        {selectedFile && selectedChange ? (
+          <div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+              <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
+              <Badge
+                text={changeTypeLabel(selectedChange.changeType)}
+                color={changeTypeBadgeColor(selectedChange.changeType)}
+              />
+              {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
+              {fileThreads.length > 0 && (
+                <span className="text-xs text-blue-600">💬 {fileThreads.length}</span>
+              )}
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-              Select a file to view changes
-            </div>
-          )}
-        </div>
-        {diffLines.length > 0 && (
-          <ScrollbarMinimap diffLines={diffLines} threadLineSet={fileThreadLineSet} scrollContainerRef={scrollContainerRef} />
+            {loadingFile ? (
+              <Spinner className="py-10" />
+            ) : fileContent ? (
+              <DiffViewer
+                oldContent={fileContent.oldContent}
+                newContent={fileContent.newContent}
+                filePath={selectedFile}
+                threads={fileThreads}
+                scrollToLine={scrollToLine}
+                onScrollHandled={() => setScrollToLine(undefined)}
+                onAddComment={async (content, line) => {
+                  await threads.addThread(content, {
+                    filePath: selectedFile,
+                    rightFileStart: { line, offset: 1 },
+                    rightFileEnd: { line, offset: 1 },
+                  });
+                }}
+                onReply={threads.reply}
+                onSetStatus={threads.setStatus}
+                onDeleteComment={threads.removeComment}
+                usersMap={usersMap}
+                currentUserId={currentUserId}
+                hiddenThreadIds={hiddenThreadIds}
+                onToggleHideThread={(threadId) => setHiddenThreadIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(threadId)) next.delete(threadId);
+                  else next.add(threadId);
+                  return next;
+                })}
+              />
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+            Select a file to view changes
+          </div>
         )}
       </div>
+
+      {/* Minimap — sticky alongside diff content */}
+      {diffLines.length > 0 && (
+        <ScrollbarMinimap sticky diffLines={diffLines} threadLineSet={fileThreadLineSet} contentRef={contentRef} />
+      )}
     </div>
   );
 }

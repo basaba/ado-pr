@@ -8,22 +8,42 @@ interface Marker {
   lineNum: number | null;
 }
 
-interface Props {
+interface BaseProps {
   diffLines: DiffLine[];
   threadLineSet: Set<number>;
+}
+
+interface ContainerProps extends BaseProps {
+  sticky?: false;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
 }
 
+interface StickyProps extends BaseProps {
+  sticky: true;
+  contentRef: RefObject<HTMLDivElement | null>;
+}
+
+type Props = ContainerProps | StickyProps;
+
 /**
  * Renders change/comment markers alongside the scrollbar.
- * Must be placed inside a position:relative wrapper that sits around the scroll container.
+ * In container mode: absolutely positioned inside a relative wrapper around a scroll container.
+ * In sticky mode: sticky-positioned as a flex sibling to flowing content (page scroll).
  */
-export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef }: Props) {
+export function ScrollbarMinimap(props: Props) {
+  const { diffLines, threadLineSet } = props;
   const [containerHeight, setContainerHeight] = useState(0);
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
 
   useEffect(() => {
-    const el = scrollContainerRef.current;
+    if (props.sticky) {
+      const update = () => setContainerHeight(window.innerHeight);
+      update();
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+
+    const el = props.scrollContainerRef.current;
     if (!el) return;
     const update = () => {
       setContainerHeight(el.clientHeight);
@@ -33,7 +53,7 @@ export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef 
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [scrollContainerRef]);
+  }, [props.sticky, props.sticky ? undefined : (props as ContainerProps).scrollContainerRef]);
 
   const markers = useMemo(() => {
     const total = diffLines.length;
@@ -81,32 +101,45 @@ export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef 
 
   const handleClick = useCallback(
     (lineNum: number | null) => {
-      if (!lineNum || !scrollContainerRef.current) return;
-      const el = scrollContainerRef.current.querySelector(`[data-line="${lineNum}"]`);
+      if (!lineNum) return;
+      const root = props.sticky
+        ? props.contentRef.current
+        : props.scrollContainerRef.current;
+      const el = root?.querySelector(`[data-line="${lineNum}"]`);
       if (el) {
         el.scrollIntoView({ behavior: 'instant', block: 'center' });
       }
     },
-    [scrollContainerRef],
+    [props.sticky, props.sticky ? (props as StickyProps).contentRef : (props as ContainerProps).scrollContainerRef],
   );
 
   if (markers.length === 0 || containerHeight === 0) return null;
 
+  const markerElements = markers.map((m, i) => (
+    <div
+      key={i}
+      className={`absolute w-full ${m.color} opacity-70 hover:opacity-100 cursor-pointer pointer-events-auto rounded-sm`}
+      style={{ top: `${m.startPos}%`, height: `max(3px, ${m.endPos - m.startPos}%)` }}
+      onClick={() => handleClick(m.lineNum)}
+      title={m.color.includes('blue') ? `Comment at line ${m.lineNum}` : `Change at line ${m.lineNum ?? '?'}`}
+    />
+  ));
+
   return (
     <div
-      className="absolute top-0 z-20 pointer-events-none"
-      style={{ height: containerHeight, width: 10, right: scrollbarWidth }}
+      className={
+        props.sticky
+          ? 'sticky top-0 self-start z-20 pointer-events-none shrink-0'
+          : 'absolute top-0 z-20 pointer-events-none'
+      }
+      style={
+        props.sticky
+          ? { height: containerHeight, width: 10 }
+          : { height: containerHeight, width: 10, right: scrollbarWidth }
+      }
     >
       <div className="relative w-full h-full bg-gray-100/50 rounded-sm">
-        {markers.map((m, i) => (
-          <div
-            key={i}
-            className={`absolute w-full ${m.color} opacity-70 hover:opacity-100 cursor-pointer pointer-events-auto rounded-sm`}
-            style={{ top: `${m.startPos}%`, height: `max(3px, ${m.endPos - m.startPos}%)` }}
-            onClick={() => handleClick(m.lineNum)}
-            title={m.color.includes('blue') ? `Comment at line ${m.lineNum}` : `Change at line ${m.lineNum ?? '?'}`}
-          />
-        ))}
+        {markerElements}
       </div>
     </div>
   );
