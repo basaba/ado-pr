@@ -84,7 +84,7 @@ export function ScrollbarMinimap({ diffLines, threadLineSet, scrollContainerRef 
       if (!lineNum || !scrollContainerRef.current) return;
       const el = scrollContainerRef.current.querySelector(`[data-line="${lineNum}"]`);
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: 'instant', block: 'center' });
       }
     },
     [scrollContainerRef],
