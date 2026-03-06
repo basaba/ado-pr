@@ -125,9 +125,32 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const dragging = useRef(false);
   const [scrollToLine, setScrollToLine] = useState<number | undefined>();
   const [hiddenThreadIds, setHiddenThreadIds] = useState<Set<number>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Sidebar resize via drag handle
+  const startDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const newWidth = Math.min(Math.max(startWidth + ev.clientX - startX, 120), 600);
+      setSidebarWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      dragging.current = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [sidebarWidth]);
+
   // Handle external navigation (e.g. from Threads tab)
   useEffect(() => {
     if (!navigateTarget) return;
@@ -234,7 +257,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   return (
     <div className="flex gap-0">
       {/* File tree sidebar — stretches full height, content is sticky */}
-      <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50">
+      <div className="shrink-0 border-r border-gray-200 bg-gray-50" style={{ width: sidebarWidth }}>
         <div className="sticky top-0 overflow-y-auto" style={{ maxHeight: '100vh' }}>
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200 sticky top-0 bg-gray-50 z-10">
             {diff.changes.length} changed file{diff.changes.length !== 1 ? 's' : ''}
@@ -254,6 +277,12 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
           </div>
         </div>
       </div>
+
+      {/* Drag handle to resize the sidebar */}
+      <div
+        onMouseDown={startDrag}
+        className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 transition-colors shrink-0"
+      />
 
       {/* Diff viewer area — flows naturally with page scroll */}
       <div className="flex-1 min-w-0" ref={contentRef}>

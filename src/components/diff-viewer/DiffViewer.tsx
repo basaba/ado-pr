@@ -275,14 +275,9 @@ export function DiffViewer({
                     return lines;
                   }
                   return (
-                    <tr key={`sep-${hunkIdx}`}>
-                      <td
-                        colSpan={4}
-                        className="bg-blue-50 text-center text-xs text-blue-500 py-1 select-none cursor-pointer hover:bg-blue-100 font-sans"
-                        onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}
-                      >
-                        ⋯ {item.hiddenCount} unchanged line{item.hiddenCount !== 1 ? 's' : ''} hidden ⋯
-                      </td>
+                    <tr key={`sep-${hunkIdx}`} className="select-none cursor-pointer group" onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}>
+                      <td colSpan={2} className="bg-blue-50 group-hover:bg-blue-100 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
+                      <td colSpan={2} className="bg-blue-50 group-hover:bg-blue-100" />
                     </tr>
                   );
                 })}
