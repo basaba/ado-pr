@@ -1,12 +1,13 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePullRequests } from '../hooks';
+import { usePullRequests, useSearchParamState } from '../hooks';
 import { Spinner, ErrorBanner, Badge, ReviewerVotes } from '../components/common';
 import { AuthorListManager } from '../components/common/AuthorListManager';
 import { formatDate, branchName } from '../utils';
 import { useAuth } from '../context';
 import type { PrSearchFilters } from '../api/pullRequests';
 import { getRepositoryByName } from '../api/pullRequests';
+import { loadLists } from '../components/common/authorListStore';
 
 type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active';
 type DateRange = '30' | '60' | '90' | '180' | '365' | 'all';
@@ -19,14 +20,48 @@ function daysAgoISO(days: number): string {
 
 const REPO_STORAGE_KEY = 'pr-filter-repo';
 const REPO_NAME_STORAGE_KEY = 'pr-filter-repo-name';
+const PRESET_STORAGE_KEY = 'pr-filter-preset';
+const DATE_RANGE_STORAGE_KEY = 'pr-filter-date-range';
+const AUTHOR_LIST_STORAGE_KEY = 'pr-filter-author-list';
+const TARGET_BRANCH_STORAGE_KEY = 'pr-filter-target-branch';
 
 export function PrListPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  const [preset, setPreset] = useState<PresetFilter | null>('assigned-to-me');
-  const [authorListActive, setAuthorListActive] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange>('30');
+  const [presetParam, setPresetParamRaw] = useSearchParamState('preset', 'assigned-to-me');
+  // Seed from localStorage on fresh navigation (no URL param present)
+  const effectivePresetParam = presetParam === 'assigned-to-me' && !window.location.search.includes('preset')
+    ? (localStorage.getItem(PRESET_STORAGE_KEY) ?? 'assigned-to-me')
+    : presetParam;
+  const preset: PresetFilter | null = effectivePresetParam === '' ? null : effectivePresetParam as PresetFilter;
+  const setPresetParam = useCallback((v: string) => {
+    setPresetParamRaw(v);
+    localStorage.setItem(PRESET_STORAGE_KEY, v);
+  }, [setPresetParamRaw]);
+  const setPreset = (v: PresetFilter | null) => setPresetParam(v ?? '');
+
+  const [selectedAuthorListParam, setSelectedAuthorListRaw] = useSearchParamState('authorList', '');
+  const effectiveAuthorList = selectedAuthorListParam === '' && !window.location.search.includes('authorList')
+    ? (localStorage.getItem(AUTHOR_LIST_STORAGE_KEY) ?? '')
+    : selectedAuthorListParam;
+  const selectedAuthorList = effectiveAuthorList;
+  const setSelectedAuthorList = useCallback((v: string) => {
+    setSelectedAuthorListRaw(v);
+    localStorage.setItem(AUTHOR_LIST_STORAGE_KEY, v);
+  }, [setSelectedAuthorListRaw]);
+  const authorListActive = selectedAuthorList !== '';
+
+  const [dateRangeParam, setDateRangeRaw] = useSearchParamState('dateRange', '30');
+  const effectiveDateRange = (dateRangeParam === '30' && !window.location.search.includes('dateRange')
+    ? (localStorage.getItem(DATE_RANGE_STORAGE_KEY) ?? '30')
+    : dateRangeParam) as DateRange;
+  const dateRange = effectiveDateRange;
+  const setDateRange = useCallback((v: DateRange) => {
+    setDateRangeRaw(v);
+    localStorage.setItem(DATE_RANGE_STORAGE_KEY, v);
+  }, [setDateRangeRaw]);
+
   const [repoId, setRepoId] = useState<string>(
     () => localStorage.getItem(REPO_STORAGE_KEY) ?? '',
   );
@@ -35,10 +70,24 @@ export function PrListPage() {
   );
   const [repoLoading, setRepoLoading] = useState(false);
   const [repoError, setRepoError] = useState('');
-  const [authors, setAuthors] = useState<{ id: string; displayName: string }[]>([]);
-  const [targetBranch, setTargetBranch] = useState<string>(
-    () => localStorage.getItem('pr-filter-target-branch') ?? '',
-  );
+  const [targetBranchParam, setTargetBranchParamRaw] = useSearchParamState('target', '');
+  const effectiveTargetBranch = targetBranchParam || localStorage.getItem(TARGET_BRANCH_STORAGE_KEY) || '';
+  const [targetBranchInput, setTargetBranchInput] = useState<string>(() => effectiveTargetBranch);
+  useEffect(() => {
+    setTargetBranchInput(targetBranchParam || localStorage.getItem(TARGET_BRANCH_STORAGE_KEY) || '');
+  }, [targetBranchParam]);
+  const targetBranch = effectiveTargetBranch;
+  const commitTargetBranch = useCallback((value: string) => {
+    setTargetBranchParamRaw(value);
+    if (value) localStorage.setItem(TARGET_BRANCH_STORAGE_KEY, value);
+    else localStorage.removeItem(TARGET_BRANCH_STORAGE_KEY);
+  }, [setTargetBranchParamRaw]);
+
+  const authors = useMemo(() => {
+    if (!selectedAuthorList) return [];
+    const lists = loadLists();
+    return lists[selectedAuthorList] ?? [];
+  }, [selectedAuthorList]);
 
   const resolveRepo = useCallback(async (name: string) => {
     const trimmed = name.trim();
@@ -79,15 +128,16 @@ export function PrListPage() {
 
   const handlePresetClick = useCallback((id: PresetFilter) => {
     setPreset(id);
-    setAuthorListActive(false);
-    setAuthors([]);
-  }, []);
+    setSelectedAuthorList('');
+  }, [setPreset, setSelectedAuthorList]);
 
   const handleAuthorListActiveChange = useCallback((active: boolean) => {
-    setAuthorListActive(active);
     if (active) setPreset(null);
-    else setPreset('assigned-to-me');
-  }, []);
+    else {
+      setPreset('assigned-to-me');
+      setSelectedAuthorList('');
+    }
+  }, [setPreset, setSelectedAuthorList]);
 
   const filters = useMemo<PrSearchFilters>(() => {
     const base: PrSearchFilters = (() => {
@@ -154,7 +204,8 @@ export function PrListPage() {
           ))}
           <span className="mx-2 text-gray-300">|</span>
           <AuthorListManager
-            onChange={setAuthors}
+            selected={selectedAuthorList}
+            onSelectedChange={setSelectedAuthorList}
             active={authorListActive}
             onActiveChange={handleAuthorListActiveChange}
           />
@@ -190,14 +241,11 @@ export function PrListPage() {
               <span className="text-sm text-gray-500">Target:</span>
               <input
                 type="text"
-                value={targetBranch}
+                value={targetBranchInput}
                 placeholder="e.g. main"
-                onChange={(e) => {
-                  setTargetBranch(e.target.value);
-                  if (!e.target.value) localStorage.removeItem('pr-filter-target-branch');
-                }}
-                onBlur={() => { if (targetBranch) localStorage.setItem('pr-filter-target-branch', targetBranch); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') localStorage.setItem('pr-filter-target-branch', targetBranch); }}
+                onChange={(e) => setTargetBranchInput(e.target.value)}
+                onBlur={() => commitTargetBranch(targetBranchInput)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitTargetBranch(targetBranchInput); }}
                 className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-40"
               />
             </div>

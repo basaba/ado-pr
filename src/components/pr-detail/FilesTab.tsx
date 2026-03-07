@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { useDiff, useThreads } from '../../hooks';
+import { useSearchParamStateNullable } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
@@ -119,7 +120,7 @@ function buildFileTree(
 }
 
 export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId, isPrOwner }: Props) {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useSearchParamStateNullable('file');
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
     newContent: string;

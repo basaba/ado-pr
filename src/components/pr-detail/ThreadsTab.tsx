@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { useThreads } from '../../hooks';
+import { useSearchParamState, useSearchParamStateSet } from '../../hooks';
 import type { ThreadStatus } from '../../types';
 import { isTextComment } from '../../utils';
 import { ThreadList } from './ThreadList';
@@ -21,8 +22,9 @@ const STATUS_FILTERS: { label: string; value: ThreadStatus | 'all' }[] = [
 ];
 
 export function ThreadsTab({ threads, usersMap, currentUserId, isPrOwner, onNavigateToFile }: Props) {
-  const [filter, setFilter] = useState<ThreadStatus | 'all'>('all');
-  const [selectedCommenters, setSelectedCommenters] = useState<Set<string>>(new Set());
+  const [filterParam, setFilter] = useSearchParamState('threadStatus', 'all');
+  const filter = filterParam as ThreadStatus | 'all';
+  const [selectedCommenters, setSelectedCommenters] = useSearchParamStateSet('commenters');
 
   // Only text threads (exclude system)
   const textThreads = threads.threads.filter((t) =>
@@ -44,12 +46,10 @@ export function ThreadsTab({ threads, usersMap, currentUserId, isPrOwner, onNavi
   }, [threads.threads]);
 
   const toggleCommenter = (id: string) => {
-    setSelectedCommenters((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(selectedCommenters);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedCommenters(next);
   };
 
   let filtered = filter === 'all'

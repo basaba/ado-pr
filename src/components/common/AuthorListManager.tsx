@@ -1,44 +1,29 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loadLists, SELECTED_KEY } from './authorListStore';
 
-interface Author {
-  id: string;
-  displayName: string;
-}
-
 interface AuthorListManagerProps {
-  onChange: (authors: Author[]) => void;
+  selected: string;
+  onSelectedChange: (name: string) => void;
   active: boolean;
   onActiveChange: (active: boolean) => void;
 }
 
-export function AuthorListManager({ onChange, active, onActiveChange }: AuthorListManagerProps) {
+export function AuthorListManager({ selected, onSelectedChange, active, onActiveChange }: AuthorListManagerProps) {
   const navigate = useNavigate();
   const [lists] = useState(() => loadLists());
-  const [selected, setSelected] = useState<string | null>(null);
-
-  // Deselect and clear authors when parent deactivates (e.g. user clicks a preset)
-  useEffect(() => {
-    if (!active) {
-      setSelected(null);
-      onChange([]);
-    }
-  }, [active, onChange]);
 
   const handleSelect = useCallback((name: string) => {
     if (selected === name) {
-      setSelected(null);
-      onChange([]);
+      onSelectedChange('');
       onActiveChange(false);
       localStorage.removeItem(SELECTED_KEY);
     } else {
-      setSelected(name);
-      onChange(lists[name] ?? []);
+      onSelectedChange(name);
       onActiveChange(true);
       localStorage.setItem(SELECTED_KEY, name);
     }
-  }, [selected, onActiveChange, onChange, lists]);
+  }, [selected, onSelectedChange, onActiveChange]);
 
   const listNames = Object.keys(lists);
 
@@ -49,7 +34,7 @@ export function AuthorListManager({ onChange, active, onActiveChange }: AuthorLi
           key={name}
           onClick={() => handleSelect(name)}
           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            selected === name
+            active && selected === name
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
