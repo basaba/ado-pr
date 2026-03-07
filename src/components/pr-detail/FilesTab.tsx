@@ -58,6 +58,7 @@ interface Props {
   navigateTarget?: FileNavigateTarget | null;
   onNavigateHandled?: () => void;
   currentUserId?: string;
+  isPrOwner?: boolean;
 }
 
 interface TreeNode {
@@ -117,7 +118,7 @@ function buildFileTree(
   return collapse(root);
 }
 
-export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId }: Props) {
+export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId, isPrOwner }: Props) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
@@ -321,6 +322,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                 onDeleteComment={threads.removeComment}
                 usersMap={usersMap}
                 currentUserId={currentUserId}
+                isPrOwner={isPrOwner}
                 hiddenThreadIds={hiddenThreadIds}
                 onToggleHideThread={(threadId) => setHiddenThreadIds((prev) => {
                   const next = new Set(prev);

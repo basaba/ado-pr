@@ -237,6 +237,7 @@ export function PrDetailPage() {
               navigateTarget={fileNavTarget}
               onNavigateHandled={() => setFileNavTarget(null)}
               currentUserId={profile?.id}
+              isPrOwner={profile?.id === pr.createdBy.id}
             />
           )}
           {activeTab === 'threads' && (
@@ -244,6 +245,7 @@ export function PrDetailPage() {
               threads={threads}
               usersMap={usersMap}
               currentUserId={profile?.id}
+              isPrOwner={profile?.id === pr.createdBy.id}
               onNavigateToFile={(filePath, line) => {
                 setFileNavTarget({ filePath, line });
                 setActiveTab('files');

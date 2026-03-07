@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
 import { MarkdownContent } from '../common';
@@ -14,6 +15,7 @@ interface Props {
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   usersMap?: Record<string, string>;
   currentUserId?: string;
+  isPrOwner?: boolean;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
   scrollToLine?: number;
@@ -113,6 +115,7 @@ export function DiffViewer({
   onDeleteComment,
   usersMap,
   currentUserId,
+  isPrOwner,
   hiddenThreadIds,
   onToggleHideThread,
   scrollToLine,
@@ -238,9 +241,9 @@ export function DiffViewer({
         onReply={onReply}
         onSetStatus={onSetStatus}
         onDeleteComment={onDeleteComment}
-        commentBoxWidth={commentBoxWidth}
         usersMap={usersMap}
         currentUserId={currentUserId}
+        isPrOwner={isPrOwner}
         hiddenThreadIds={hiddenThreadIds}
         onToggleHideThread={onToggleHideThread}
       />
@@ -291,7 +294,7 @@ export function DiffViewer({
             </p>
             {unmatchedThreads.map((thread) => (
               <div key={thread.id} className="mb-3">
-                <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} currentUserId={currentUserId} hiddenThreadIds={hiddenThreadIds} onToggleHideThread={onToggleHideThread} />
+                <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} currentUserId={currentUserId} isPrOwner={isPrOwner} hiddenThreadIds={hiddenThreadIds} onToggleHideThread={onToggleHideThread} />
               </div>
             ))}
           </div>
@@ -305,7 +308,7 @@ function DiffLineRow({
   line, lineColors, lineTextColors, gutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment,
-  commentBoxWidth, usersMap, currentUserId, hiddenThreadIds, onToggleHideThread,
+  usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -322,74 +325,291 @@ function DiffLineRow({
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
-  commentBoxWidth: string;
   usersMap?: Record<string, string>;
   currentUserId?: string;
+  isPrOwner?: boolean;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
   return (
+    <tr className={`${lineColors[line.type]} hover:brightness-95`} data-line={line.newLineNum ?? undefined}>
+      <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.oldLineNum ?? ''}</td>
+      <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.newLineNum ?? ''}</td>
+      <td
+        className={`w-5 text-center px-1 py-0 select-none ${gutterColors[line.type]} ${lineThreads.length > 0 ? '' : 'cursor-pointer hover:bg-blue-100'}`}
+        onClick={lineThreads.length > 0 ? undefined : onGutterClick}
+        title={lineThreads.length > 0 ? undefined : 'Add comment'}
+      >
+        {lineThreads.length > 0 ? (
+          <CommentIndicator
+            lineThreads={lineThreads}
+            onReply={onReply}
+            onSetStatus={onSetStatus}
+            onDeleteComment={onDeleteComment}
+            usersMap={usersMap}
+            currentUserId={currentUserId}
+            isPrOwner={isPrOwner}
+            hiddenThreadIds={hiddenThreadIds}
+            onToggleHideThread={onToggleHideThread}
+          />
+        ) : (
+          line.newLineNum ? (
+            <AddCommentPopover
+              isOpen={isCommentOpen}
+              onGutterClick={onGutterClick}
+              commentText={commentText}
+              onCommentTextChange={onCommentTextChange}
+              sending={sending}
+              onSubmitComment={onSubmitComment}
+              onCancelComment={onCancelComment}
+            />
+          ) : ''
+        )}
+      </td>
+      <td className={`px-3 py-0 whitespace-pre ${lineTextColors[line.type]}`}>
+        <span className="select-none opacity-50 mr-1">{prefix}</span>
+        {line.content}
+      </td>
+    </tr>
+  );
+}
+
+function AddCommentPopover({
+  isOpen,
+  onGutterClick,
+  commentText,
+  onCommentTextChange,
+  sending,
+  onSubmitComment,
+  onCancelComment,
+}: {
+  isOpen: boolean;
+  onGutterClick: () => void;
+  commentText: string;
+  onCommentTextChange: (v: string) => void;
+  sending: boolean;
+  onSubmitComment: () => void;
+  onCancelComment: () => void;
+}) {
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const updatePos = useCallback(() => {
+    if (indicatorRef.current) {
+      const rect = indicatorRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + 4 + window.scrollY,
+        left: rect.left + window.scrollX,
+      });
+    }
+  }, []);
+
+  // Recalculate position and focus textarea when popover opens
+  useEffect(() => {
+    if (isOpen) {
+      updatePos();
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      });
+    }
+  }, [isOpen, updatePos]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    updatePos();
+    onGutterClick();
+  }, [onGutterClick, updatePos]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        indicatorRef.current && !indicatorRef.current.contains(e.target as Node) &&
+        popoverRef.current && !popoverRef.current.contains(e.target as Node)
+      ) {
+        onCancelComment();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen, onCancelComment]);
+
+  return (
     <>
-      <tr className={`${lineColors[line.type]} hover:brightness-95`} data-line={line.newLineNum ?? undefined}>
-        <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.oldLineNum ?? ''}</td>
-        <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.newLineNum ?? ''}</td>
-        <td
-          className={`w-5 text-center px-1 py-0 select-none cursor-pointer hover:bg-blue-100 ${gutterColors[line.type]}`}
-          onClick={onGutterClick}
-          title="Add comment"
+      <span
+        ref={indicatorRef}
+        onClick={handleClick}
+        className="cursor-pointer hover:text-blue-600"
+        title="Add comment"
+      >
+        +
+      </span>
+      {isOpen && createPortal(
+        <div
+          ref={popoverRef}
+          className="absolute z-[9999] bg-gray-50 border border-gray-200 rounded-2xl shadow-xl font-sans"
+          style={{ top: pos.top, left: pos.left, width: 400 }}
         >
-          {line.newLineNum ? '+' : ''}
-        </td>
-        <td className={`px-3 py-0 whitespace-pre ${lineTextColors[line.type]}`}>
-          <span className="select-none opacity-50 mr-1">{prefix}</span>
-          {line.content}
-        </td>
-      </tr>
-
-      {lineThreads.map((thread) => (
-        <tr key={`thread-${thread.id}`}>
-          <td colSpan={4} className="bg-blue-50 border-l-4 border-blue-400 p-0">
-            <div className="px-6 py-2" style={{ width: commentBoxWidth, maxWidth: commentBoxWidth }}>
-              <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} usersMap={usersMap} currentUserId={currentUserId} hiddenThreadIds={hiddenThreadIds} onToggleHideThread={onToggleHideThread} />
+          <div className="p-3">
+            <textarea
+              ref={textareaRef}
+              value={commentText}
+              onChange={(e) => onCommentTextChange(e.target.value)}
+              rows={3}
+              placeholder="Write your comment..."
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2 mt-2 justify-end">
+              <button onClick={onCancelComment} className="text-xs text-gray-500 hover:underline">Cancel</button>
+              <button
+                onClick={onSubmitComment}
+                disabled={sending || !commentText.trim()}
+                className="px-3 py-1 bg-blue-500 text-white rounded-full text-xs font-medium hover:bg-blue-600 disabled:opacity-50"
+              >
+                {sending ? 'Posting...' : 'Add Comment'}
+              </button>
             </div>
-          </td>
-        </tr>
-      ))}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 
-      {isCommentOpen && (
-        <tr>
-          <td colSpan={4} className="bg-yellow-50 border-l-4 border-yellow-400 p-0">
-            <div className="px-6 py-3" style={{ width: commentBoxWidth, maxWidth: commentBoxWidth }}>
-              <textarea
-                value={commentText}
-                onChange={(e) => onCommentTextChange(e.target.value)}
-                rows={3}
-                placeholder="Write your comment..."
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
+function CommentIndicator({
+  lineThreads,
+  onReply,
+  onSetStatus,
+  onDeleteComment,
+  usersMap,
+  currentUserId,
+  isPrOwner,
+  hiddenThreadIds,
+  onToggleHideThread,
+}: {
+  lineThreads: PullRequestThread[];
+  onReply: (threadId: number, content: string) => Promise<void>;
+  onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
+  onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
+  usersMap?: Record<string, string>;
+  currentUserId?: string;
+  isPrOwner?: boolean;
+  hiddenThreadIds?: Set<number>;
+  onToggleHideThread?: (threadId: number) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const updatePos = useCallback(() => {
+    if (indicatorRef.current) {
+      const rect = indicatorRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + 4 + window.scrollY,
+        left: rect.left + window.scrollX,
+      });
+    }
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isOpen) {
+      setIsOpen(false);
+    } else {
+      updatePos();
+      setIsOpen(true);
+    }
+  }, [isOpen, updatePos]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        indicatorRef.current && !indicatorRef.current.contains(e.target as Node) &&
+        popoverRef.current && !popoverRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen]);
+
+  const hasActive = lineThreads.some((t) => t.status === 'active');
+  const count = lineThreads.length;
+  const firstComment = lineThreads[0]?.comments?.[0];
+  const avatarUrl = firstComment?.author?.imageUrl;
+  const authorName = firstComment?.author?.displayName ?? '';
+  const initials = authorName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const totalComments = lineThreads.reduce((sum, t) => sum + t.comments.filter((c) => isTextComment(c.commentType)).length, 0);
+  const extraCount = totalComments - 1;
+
+  return (
+    <>
+      <span
+        ref={indicatorRef}
+        onClick={handleClick}
+        className="cursor-pointer inline-flex items-center gap-0.5"
+        title={`${count} thread${count !== 1 ? 's' : ''}, ${totalComments} comment${totalComments !== 1 ? 's' : ''} – ${authorName}`}
+      >
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={authorName}
+            className={`rounded-full object-cover ring-1 ${hasActive ? 'ring-blue-400' : 'ring-green-400'}`}
+            style={{ width: 16, height: 16, minWidth: 16, minHeight: 16 }}
+          />
+        ) : (
+          <span
+            className={`rounded-full flex items-center justify-center text-[7px] font-bold text-white ${hasActive ? 'bg-blue-500' : 'bg-green-500'}`}
+            style={{ width: 16, height: 16, minWidth: 16, minHeight: 16 }}
+          >
+            {initials}
+          </span>
+        )}
+        {extraCount > 0 && (
+          <span className="text-[8px] font-semibold text-gray-500 leading-none">+{extraCount}</span>
+        )}
+      </span>
+      {isOpen && createPortal(
+        <div
+          ref={popoverRef}
+          className="absolute z-[9999] bg-gray-50 border border-gray-200 rounded-2xl shadow-xl max-h-80 overflow-y-auto"
+          style={{ top: pos.top, left: pos.left, width: 450 }}
+        >
+          <div className="p-3 space-y-3">
+            {lineThreads.map((thread) => (
+              <InlineThread
+                key={thread.id}
+                thread={thread}
+                onReply={onReply}
+                onSetStatus={onSetStatus}
+                onDeleteComment={onDeleteComment}
+                usersMap={usersMap}
+                currentUserId={currentUserId}
+                isPrOwner={isPrOwner}
+                hiddenThreadIds={hiddenThreadIds}
+                onToggleHideThread={onToggleHideThread}
               />
-              <div className="flex gap-2 mt-2 justify-end">
-                <button onClick={onCancelComment} className="text-xs text-gray-500 hover:underline font-sans">Cancel</button>
-                <button
-                  onClick={onSubmitComment}
-                  disabled={sending || !commentText.trim()}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 font-sans"
-                >
-                  {sending ? 'Posting...' : 'Add Comment'}
-                </button>
-              </div>
-            </div>
-          </td>
-        </tr>
+            ))}
+          </div>
+        </div>,
+        document.body,
       )}
     </>
   );
 }
 
 function InlineThread({
-  thread, onReply, onSetStatus, onDeleteComment, usersMap, currentUserId, hiddenThreadIds, onToggleHideThread,
+  thread, onReply, onSetStatus, onDeleteComment, usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread,
 }: {
   thread: PullRequestThread;
   onReply: (threadId: number, content: string) => Promise<void>;
@@ -397,6 +617,7 @@ function InlineThread({
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
   usersMap?: Record<string, string>;
   currentUserId?: string;
+  isPrOwner?: boolean;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
 }) {
@@ -421,64 +642,82 @@ function InlineThread({
 
   return (
     <div className="font-sans text-sm space-y-1">
-      <div className="flex items-center gap-2 text-xs">
-        <span className={`rounded px-1 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-          {thread.status}
-        </span>
-        {hidden && (
-          <>
-            <span className="text-gray-400 italic">({textComments.length} comment{textComments.length !== 1 ? 's' : ''} hidden)</span>
-            <button onClick={() => onToggleHideThread?.(thread.id)} className="text-blue-600 hover:underline">Show</button>
-          </>
-        )}
-      </div>
+      {hidden && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`rounded px-1 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+            {thread.status}
+          </span>
+          <span className="text-gray-400 italic">({textComments.length} comment{textComments.length !== 1 ? 's' : ''} hidden)</span>
+          <button onClick={() => onToggleHideThread?.(thread.id)} className="text-blue-600 hover:underline">Show</button>
+        </div>
+      )}
       {!hidden && (
         <>
-          {textComments.map((c) => (
-            <div key={c.id} className="pl-2 border-l-2 border-gray-200">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-700 text-xs">{c.author.displayName}</span>
-                <span className="text-gray-400 text-xs">{formatDate(c.publishedDate)}</span>
+          {textComments.map((c) => {
+            const isMe = currentUserId != null && c.author.id === currentUserId;
+            return (
+              <div key={c.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className="flex-shrink-0 mt-1">
+                  {c.author.imageUrl ? (
+                    <img src={c.author.imageUrl} alt={c.author.displayName} className="rounded-full object-cover" style={{ width: 22, height: 22, minWidth: 22, minHeight: 22 }} />
+                  ) : (
+                    <span className="rounded-full bg-gray-400 text-white flex items-center justify-center text-[8px] font-bold" style={{ width: 22, height: 22, minWidth: 22, minHeight: 22 }}>
+                      {c.author.displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className={`max-w-[80%] ${isMe ? 'items-end' : 'items-start'}`}>
+                  <div className={`flex items-baseline gap-1.5 mb-0.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <span className="font-medium text-gray-600 text-[11px]">{c.author.displayName}</span>
+                    <span className="text-gray-400 text-[10px]">{formatDate(c.publishedDate)}</span>
+                  </div>
+                  <div className={`rounded-2xl px-3 py-1.5 ${isMe ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}>
+                    <MarkdownContent content={c.content} className={`text-sm [&_p]:m-0 ${isMe ? 'text-white [&_a]:text-blue-100' : 'text-gray-800'}`} usersMap={usersMap} />
+                  </div>
+                </div>
               </div>
-              <MarkdownContent content={c.content} className="text-gray-800 text-sm" usersMap={usersMap} />
-            </div>
-          ))}
+            );
+          })}
           {showReply && (
-            <div className="mt-1">
+            <div className="mt-2">
               <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} rows={2}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reply..." />
               <div className="flex gap-2 mt-1 justify-end">
                 <button onClick={() => setShowReply(false)} className="text-xs text-gray-500 hover:underline">Cancel</button>
                 <button onClick={handleReply} disabled={sending}
-                  className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs disabled:opacity-50">Reply</button>
+                  className="px-3 py-1 bg-blue-500 text-white rounded-full text-xs disabled:opacity-50">Reply</button>
               </div>
             </div>
           )}
-          <div className="flex items-center gap-2 text-xs">
-            {!showReply && (
-              <button onClick={() => setShowReply(true)} className="text-blue-600 hover:underline">Reply</button>
-            )}
-            {thread.status === 'active' ? (
-              <>
-                <span className="text-gray-300">|</span>
-                <button onClick={() => onSetStatus(thread.id, 'fixed')} className="text-green-600 hover:underline">Resolve</button>
-              </>
-            ) : (
-              <>
-                <span className="text-gray-300">|</span>
-                <button onClick={() => onSetStatus(thread.id, 'active')} className="text-blue-600 hover:underline">Reopen</button>
-              </>
-            )}
-            {onDeleteComment && textComments.length > 0 && currentUserId && textComments[textComments.length - 1].author.id === currentUserId && (
-              <>
-                <span className="text-gray-300">|</span>
-                <button onClick={() => { if (confirm('Delete this comment?')) onDeleteComment(thread.id, textComments[textComments.length - 1].id); }}
-                  className="text-red-400 hover:text-red-600 hover:underline">Delete</button>
-              </>
-            )}
-            <span className="text-gray-300">|</span>
-            <button onClick={() => onToggleHideThread?.(thread.id)} className="text-gray-500 hover:underline">Hide</button>
-          </div>
+          {!showReply && (
+            <div className={`flex items-center justify-between text-xs ${textComments.length > 0 ? 'mt-1' : ''}`}>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowReply(true)} className="text-blue-600 hover:underline">Reply</button>
+              {isPrOwner && thread.status === 'active' && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <button onClick={() => onSetStatus(thread.id, 'fixed')} className="text-green-600 hover:underline">Resolve</button>
+                </>
+              )}
+              {isPrOwner && thread.status !== 'active' && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <button onClick={() => onSetStatus(thread.id, 'active')} className="text-blue-600 hover:underline">Reopen</button>
+                </>
+              )}
+              {onDeleteComment && textComments.length > 0 && currentUserId && textComments[textComments.length - 1].author.id === currentUserId && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <button onClick={() => { if (confirm('Delete this comment?')) onDeleteComment(thread.id, textComments[textComments.length - 1].id); }}
+                    className="text-red-400 hover:text-red-600 hover:underline">Delete</button>
+                </>
+              )}
+              </div>
+              <span className={`rounded px-1.5 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                {thread.status}
+              </span>
+            </div>
+          )}
         </>
       )}
     </div>
