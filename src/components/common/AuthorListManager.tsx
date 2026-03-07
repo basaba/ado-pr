@@ -48,7 +48,7 @@ export function AuthorListManager({ onChange, active, onActiveChange }: AuthorLi
         <button
           key={name}
           onClick={() => handleSelect(name)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
             selected === name
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -59,7 +59,7 @@ export function AuthorListManager({ onChange, active, onActiveChange }: AuthorLi
       ))}
       <button
         onClick={() => navigate('/author-lists')}
-        className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
+        className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
       >
         + New list
       </button>
