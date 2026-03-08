@@ -452,6 +452,8 @@ function AddCommentPopover({
       {isOpen && createPortal(
         <div
           ref={popoverRef}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           className="absolute z-[9999] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl font-sans"
           style={{ top: pos.top, left: pos.left, width: 400 }}
         >
@@ -462,7 +464,7 @@ function AddCommentPopover({
               onChange={(e) => onCommentTextChange(e.target.value)}
               rows={3}
               placeholder="Write your comment..."
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <div className="flex gap-2 mt-2 justify-end">
               <button onClick={onCancelComment} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>
@@ -582,6 +584,8 @@ function CommentIndicator({
       {isOpen && createPortal(
         <div
           ref={popoverRef}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           className="absolute z-[9999] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl max-h-80 overflow-y-auto"
           style={{ top: pos.top, left: pos.left, width: 450 }}
         >
@@ -681,7 +685,7 @@ function InlineThread({
           {showReply && (
             <div className="mt-2">
               <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} rows={2}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reply..." />
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reply..." />
               <div className="flex gap-2 mt-1 justify-end">
                 <button onClick={() => setShowReply(false)} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>
                 <button onClick={handleReply} disabled={sending}
