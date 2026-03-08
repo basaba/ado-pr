@@ -20,11 +20,9 @@ class AdoClient {
   private _headers: Record<string, string> = {};
 
   configure(config: AdoConfig) {
-    this._orgUrl = config.orgUrl.replace(/\/$/, '');
+    this._orgUrl = `${config.serverUrl.replace(/\/$/, '')}/${config.organization}`;
     this.project = config.project;
-    const token = btoa(`:${config.pat}`);
     this._headers = {
-      Authorization: `Basic ${token}`,
       'Content-Type': 'application/json',
     };
   }

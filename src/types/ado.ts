@@ -1,9 +1,9 @@
 // ADO REST API TypeScript types
 
 export interface AdoConfig {
-  orgUrl: string;    // e.g. https://dev.azure.com/myorg
+  serverUrl: string;    // e.g. https://dev.azure.com
+  organization: string; // e.g. myorg
   project: string;
-  pat: string;
   repoPath?: string; // optional local repo path for Copilot file access
 }
 

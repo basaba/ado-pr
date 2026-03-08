@@ -7,13 +7,16 @@ import { ErrorBanner } from '../components/common';
 export function LoginPage() {
   const { login, loading, error } = useAuth();
   const navigate = useNavigate();
-  const [orgUrl, setOrgUrl] = useState('');
-  const [project, setProject] = useState('');
-  const [pat, setPat] = useState('');
-  const [repoPath, setRepoPath] = useState('');
+  const [serverUrl, setServerUrl] = useState('https://dev.azure.com');
+  const [organization, setOrganization] = useState('msazure');
+  const [project, setProject] = useState('One');
+  const [repoPath, setRepoPath] = useState(() => {
+    return localStorage.getItem('ado-pr-repo-path') || '';
+  });
 
-  // Pre-populate repo path from env var
+  // Pre-populate repo path from env var if not already saved
   useEffect(() => {
+    if (repoPath) return;
     fetch('/copilot-api/repo-path')
       .then((r) => r.json())
       .then((data) => {
@@ -25,7 +28,8 @@ export function LoginPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await login({ orgUrl, project, pat, repoPath: repoPath || undefined });
+      if (repoPath) localStorage.setItem('ado-pr-repo-path', repoPath);
+      await login({ serverUrl, organization, project, repoPath: repoPath || undefined });
       navigate('/');
     } catch {
       // error shown via context
@@ -39,14 +43,32 @@ export function LoginPage() {
 
         {error && <ErrorBanner message={error} />}
 
+        <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+          Authenticates via <strong>Azure CLI</strong>. Run{' '}
+          <code className="bg-blue-100 px-1 rounded">az login</code> in your terminal before
+          connecting.
+        </div>
+
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Organization URL</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Server URL</label>
           <input
             type="url"
             required
-            placeholder="https://dev.azure.com/myorg"
-            value={orgUrl}
-            onChange={(e) => setOrgUrl(e.target.value)}
+            placeholder="https://dev.azure.com"
+            value={serverUrl}
+            onChange={(e) => setServerUrl(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Organization</label>
+          <input
+            type="text"
+            required
+            placeholder="msazure"
+            value={organization}
+            onChange={(e) => setOrganization(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -61,21 +83,6 @@ export function LoginPage() {
             onChange={(e) => setProject(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Personal Access Token</label>
-          <input
-            type="password"
-            required
-            placeholder="PAT with Code (Read & Write) scope"
-            value={pat}
-            onChange={(e) => setPat(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Needs <strong>Code (Read &amp; Write)</strong> scope.
-          </p>
         </div>
 
         <div className="mt-4">

@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { AdoConfig, IdentityRef } from '../types';
-import { adoClient, getMyProfile } from '../api';
+import { adoClient } from '../api';
 
 interface AuthState {
   config: AdoConfig | null;
@@ -21,6 +21,20 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 const STORAGE_KEY = 'ado-pr-config';
+
+async function checkAuthStatus(config: AdoConfig): Promise<IdentityRef> {
+  const orgUrl = `${config.serverUrl.replace(/\/$/, '')}/${config.organization}`;
+  const res = await fetch(`/auth/status?orgUrl=${encodeURIComponent(orgUrl)}`);
+  const data = await res.json();
+  if (!data.authenticated) {
+    throw new Error(data.error || 'Azure CLI authentication failed. Run `az login` first.');
+  }
+  return {
+    id: data.profile.id,
+    displayName: data.profile.displayName,
+    uniqueName: data.profile.displayName,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<AdoConfig | null>(null);
@@ -36,10 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(saved) as AdoConfig;
         adoClient.configure(parsed);
         setConfig(parsed);
-        Promise.all([getMyProfile(), adoClient.resolveProjectId()])
+        Promise.all([checkAuthStatus(parsed), adoClient.resolveProjectId()])
           .then(([p]) => setProfile(p))
           .catch(() => {
             localStorage.removeItem(STORAGE_KEY);
+            setConfig(null);
           })
           .finally(() => setLoading(false));
       } catch {
@@ -55,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       adoClient.configure(cfg);
-      const [p] = await Promise.all([getMyProfile(), adoClient.resolveProjectId()]);
+      const [p] = await Promise.all([checkAuthStatus(cfg), adoClient.resolveProjectId()]);
       setProfile(p);
       setConfig(cfg);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
