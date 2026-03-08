@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { usePullRequests, useSearchParamState } from '../hooks';
 import { Spinner, ErrorBanner, Badge, ReviewerVotes } from '../components/common';
 import { AuthorListManager } from '../components/common/AuthorListManager';
-import { formatDate, branchName } from '../utils';
+import { formatDate, branchName, isTextComment } from '../utils';
 import { useAuth } from '../context';
 import type { PrSearchFilters } from '../api/pullRequests';
 import { getRepositoryByName } from '../api/pullRequests';
+import { listThreads } from '../api/threads';
 import { loadLists } from '../components/common/authorListStore';
 
 type PresetFilter = 'assigned-to-me' | 'created-by-me' | 'all-active';
@@ -171,6 +172,32 @@ export function PrListPage() {
 
   const { pullRequests, loading, error, refresh } = usePullRequests(filters, authorIds);
 
+  const [threadCounts, setThreadCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (pullRequests.length === 0) return;
+    setThreadCounts({});
+    let cancelled = false;
+    Promise.all(
+      pullRequests.map(async (pr) => {
+        try {
+          const threads = await listThreads(pr.repository.id, pr.pullRequestId);
+          const count = threads.reduce(
+            (sum, t) => sum + t.comments.filter((c) => isTextComment(c.commentType)).length,
+            0,
+          );
+          return [`${pr.repository.id}/${pr.pullRequestId}`, count] as const;
+        } catch {
+          return [`${pr.repository.id}/${pr.pullRequestId}`, -1] as const;
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      setThreadCounts(Object.fromEntries(results));
+    });
+    return () => { cancelled = true; };
+  }, [pullRequests]);
+
   const presets: { id: PresetFilter; label: string }[] = [
     { id: 'assigned-to-me', label: '👤 Assigned to me' },
     { id: 'created-by-me', label: '✍️ Created by me' },
@@ -283,7 +310,20 @@ export function PrListPage() {
                     <span>{formatDate(pr.creationDate)}</span>
                   </div>
                 </div>
-                <div className="ml-4 shrink-0">
+                <div className="ml-4 shrink-0 flex items-center gap-3">
+                  {(() => {
+                    const count = threadCounts[`${pr.repository.id}/${pr.pullRequestId}`];
+                    if (count == null) return null;
+                    if (count < 0) return null;
+                    return (
+                      <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400" title={`${count} comment${count !== 1 ? 's' : ''}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                          <path fillRule="evenodd" d="M2 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8.5l-3.8 2.85A.75.75 0 0 1 3.5 16.25V14H4a2 2 0 0 1-2-2V5Zm4.5 2a.75.75 0 0 0 0 1.5h7a.75.75 0 0 0 0-1.5h-7Zm0 3a.75.75 0 0 0 0 1.5h4a.75.75 0 0 0 0-1.5h-4Z" clipRule="evenodd" />
+                        </svg>
+                        {count}
+                      </span>
+                    );
+                  })()}
                   <ReviewerVotes reviewers={pr.reviewers} currentUserId={profile?.id} />
                 </div>
               </div>
