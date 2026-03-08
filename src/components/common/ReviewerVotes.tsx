@@ -14,10 +14,10 @@ const VOTE_ICON: Record<number, string> = {
 };
 
 const VOTE_BG: Record<number, string> = {
-  10: 'bg-green-50',
-  5: 'bg-green-50',
-  '-5': 'bg-yellow-50',
-  '-10': 'bg-red-50',
+  10: 'bg-green-50 dark:bg-green-900/30',
+  5: 'bg-green-50 dark:bg-green-900/30',
+  '-5': 'bg-yellow-50 dark:bg-yellow-900/30',
+  '-10': 'bg-red-50 dark:bg-red-900/30',
 };
 
 const VOTE_PRIORITY: Record<number, number> = {
@@ -42,7 +42,7 @@ export function ReviewerVotes({ reviewers, currentUserId }: Props) {
     .sort((a, b) => (VOTE_PRIORITY[a.vote] ?? 99) - (VOTE_PRIORITY[b.vote] ?? 99));
 
   if (voted.length === 0) {
-    return <span className="text-xs text-gray-400">No votes</span>;
+    return <span className="text-xs text-gray-400 dark:text-gray-500">No votes</span>;
   }
 
   return (
@@ -52,8 +52,8 @@ export function ReviewerVotes({ reviewers, currentUserId }: Props) {
           key={r.id}
           title={`${r.displayName}: ${VOTE_LABELS[r.vote] || 'Unknown'}${r.isRequired ? ' (required)' : ''}`}
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-            VOTE_BG[r.vote] || 'bg-gray-50'
-          } ${VOTE_COLORS[r.vote] || 'text-gray-400'} ${
+            VOTE_BG[r.vote] || 'bg-gray-50 dark:bg-gray-700'
+          } ${VOTE_COLORS[r.vote] || 'text-gray-400 dark:text-gray-500'} ${
             r.id === currentUserId ? 'ring-1 ring-blue-400' : ''
           }`}
         >

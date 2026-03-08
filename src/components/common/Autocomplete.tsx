@@ -74,16 +74,16 @@ export function Autocomplete({ items, value, onChange, onQueryChange, placeholde
             if (!e.target.value) onChange('');
           }}
           onFocus={() => { setOpen(true); onFocus?.(); }}
-          className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-64"
+          className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 w-64"
           disabled={loading}
         />
         {loading && (
-          <span className="ml-2 text-gray-400 text-xs animate-pulse">Loading…</span>
+          <span className="ml-2 text-gray-400 dark:text-gray-500 text-xs animate-pulse">Loading…</span>
         )}
         {!loading && value && (
           <button
             onClick={handleClear}
-            className="ml-1 text-gray-400 hover:text-gray-600 text-sm"
+            className="ml-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm"
             title="Clear"
           >
             ✕
@@ -91,27 +91,27 @@ export function Autocomplete({ items, value, onChange, onQueryChange, placeholde
         )}
       </div>
       {open && filtered.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-64 max-h-60 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+        <ul className="absolute z-10 mt-1 w-64 max-h-60 overflow-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg text-sm">
           {filtered.slice(0, 50).map((item) => (
             <li
               key={item.id}
               onClick={() => handleSelect(item)}
-              className={`px-3 py-2 cursor-pointer hover:bg-blue-50 ${
-                item.id === value ? 'bg-blue-100 font-medium' : ''
+              className={`px-3 py-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/40 ${
+                item.id === value ? 'bg-blue-100 dark:bg-blue-900 font-medium' : ''
               }`}
             >
               {item.label}
             </li>
           ))}
           {filtered.length > 50 && (
-            <li className="px-3 py-2 text-gray-400 text-xs">
+            <li className="px-3 py-2 text-gray-400 dark:text-gray-500 text-xs">
               Type to narrow down ({filtered.length} results)…
             </li>
           )}
         </ul>
       )}
       {open && query && filtered.length === 0 && (
-        <div className="absolute z-10 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg text-sm px-3 py-2 text-gray-400">
+        <div className="absolute z-10 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg text-sm px-3 py-2 text-gray-400 dark:text-gray-500">
           {onNoResults ? (
             <button
               onClick={onNoResults}

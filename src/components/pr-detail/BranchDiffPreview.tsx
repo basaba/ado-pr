@@ -116,9 +116,9 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
   }, []);
 
   if (loading) return <Spinner className="py-6" />;
-  if (error) return <p className="text-red-600 text-sm py-4">{error}</p>;
+  if (error) return <p className="text-red-600 dark:text-red-400 text-sm py-4">{error}</p>;
   if (changes.length === 0) {
-    return <p className="text-gray-400 text-sm italic py-4">No differences between branches.</p>;
+    return <p className="text-gray-400 dark:text-gray-500 text-sm italic py-4">No differences between branches.</p>;
   }
 
   const selectedChange = changes.find((c) => c.item.path === selectedFile);
@@ -131,10 +131,10 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
   const emptyThreadLineSet = useMemo(() => new Set<number>(), []);
 
   return (
-    <div className="flex gap-0 border border-gray-200 rounded-lg overflow-hidden">
+    <div className="flex gap-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       {/* File tree sidebar */}
-      <div className="w-60 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto" style={{ maxHeight: '500px' }}>
-        <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200 sticky top-0 bg-gray-50 z-10">
+      <div className="w-60 shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 overflow-y-auto" style={{ maxHeight: '500px' }}>
+        <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-gray-50 dark:bg-gray-900 z-10">
           {changes.length} changed file{changes.length !== 1 ? 's' : ''}
         </div>
         <div className="py-1">
@@ -157,8 +157,8 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
         <div ref={scrollContainerRef} className="h-full overflow-x-auto overflow-y-auto">
           {selectedFile && selectedChange ? (
             <div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                <span className="font-mono text-sm text-gray-800 truncate">{selectedFile}</span>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+                <span className="font-mono text-sm text-gray-800 dark:text-gray-100 truncate">{selectedFile}</span>
                 <Badge
                   text={changeTypeLabel(selectedChange.changeType)}
                   color={changeTypeBadgeColor(selectedChange.changeType)}
@@ -179,7 +179,7 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
               ) : null}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-48 text-gray-400 dark:text-gray-500 text-sm">
               Select a file to view changes
             </div>
           )}
@@ -214,10 +214,10 @@ function FileTreeNode({
   const paddingLeft = 12 + depth * 16;
 
   const changeColor: Record<string, string> = {
-    add: 'text-green-600',
-    edit: 'text-blue-600',
-    delete: 'text-red-600',
-    rename: 'text-yellow-600',
+    add: 'text-green-600 dark:text-green-400',
+    edit: 'text-blue-600 dark:text-blue-400',
+    delete: 'text-red-600 dark:text-red-400',
+    rename: 'text-yellow-600 dark:text-yellow-400',
   };
 
   if (isFile) {
@@ -225,14 +225,14 @@ function FileTreeNode({
       <div
         className={`flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs transition-colors truncate ${
           isSelected
-            ? 'bg-blue-100 text-blue-900 font-medium'
-            : 'text-gray-700 hover:bg-gray-100'
+            ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-200 font-medium'
+            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
         }`}
         style={{ paddingLeft }}
         onClick={() => onFileClick(node.path)}
         title={node.path}
       >
-        <span className={`shrink-0 ${changeColor[node.change!.changeType] || 'text-gray-400'}`}>●</span>
+        <span className={`shrink-0 ${changeColor[node.change!.changeType] || 'text-gray-400 dark:text-gray-500'}`}>●</span>
         <span className="truncate">{node.name}</span>
       </div>
     );
@@ -242,11 +242,11 @@ function FileTreeNode({
     return (
       <>
         <div
-          className="flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs text-gray-500 hover:bg-gray-100 transition-colors"
+          className="flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           style={{ paddingLeft }}
           onClick={() => onToggleDir(node.path)}
         >
-          <span className="shrink-0 text-gray-400 w-3 text-center">
+          <span className="shrink-0 text-gray-400 dark:text-gray-500 w-3 text-center">
             {isCollapsed ? '▸' : '▾'}
           </span>
           <span className="font-medium truncate">{node.name}</span>

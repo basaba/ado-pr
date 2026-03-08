@@ -180,14 +180,14 @@ export function PrListPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-800">Pull Requests</h1>
-        <button onClick={refresh} className="text-sm text-blue-600 hover:underline">
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Pull Requests</h1>
+        <button onClick={refresh} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
           ↻ Refresh
         </button>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-lg shadow p-4 mb-4 space-y-3">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4 space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           {presets.map((p) => (
             <button
@@ -196,13 +196,13 @@ export function PrListPage() {
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 preset === p.id
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {p.label}
             </button>
           ))}
-          <span className="mx-2 text-gray-300">|</span>
+          <span className="mx-2 text-gray-300 dark:text-gray-600">|</span>
           <AuthorListManager
             selected={selectedAuthorList}
             onSelectedChange={setSelectedAuthorList}
@@ -213,7 +213,7 @@ export function PrListPage() {
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as DateRange)}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 border-none cursor-pointer hover:bg-gray-200 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-none cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               <option value="30">Last 30 days</option>
               <option value="60">Last 60 days</option>
@@ -223,7 +223,7 @@ export function PrListPage() {
               <option value="all">All time</option>
             </select>
             <div className="flex items-center gap-1">
-              <span className="text-sm text-gray-500">Repo:</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Repo:</span>
               <input
                 type="text"
                 value={repoName}
@@ -231,14 +231,14 @@ export function PrListPage() {
                 onChange={(e) => { setRepoName(e.target.value); if (!e.target.value) resolveRepo(''); }}
                 onBlur={() => resolveRepo(repoName)}
                 onKeyDown={handleRepoKeyDown}
-                className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-56"
+                className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 w-56"
                 disabled={repoLoading}
               />
-              {repoLoading && <span className="text-gray-400 text-xs animate-pulse">…</span>}
-              {repoError && <span className="text-red-500 text-xs">{repoError}</span>}
+              {repoLoading && <span className="text-gray-400 dark:text-gray-500 text-xs animate-pulse">…</span>}
+              {repoError && <span className="text-red-500 dark:text-red-400 text-xs">{repoError}</span>}
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-sm text-gray-500">Target:</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Target:</span>
               <input
                 type="text"
                 value={targetBranchInput}
@@ -246,7 +246,7 @@ export function PrListPage() {
                 onChange={(e) => setTargetBranchInput(e.target.value)}
                 onBlur={() => commitTargetBranch(targetBranchInput)}
                 onKeyDown={(e) => { if (e.key === 'Enter') commitTargetBranch(targetBranchInput); }}
-                className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-40"
+                className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 w-40"
               />
             </div>
           </div>
@@ -258,25 +258,25 @@ export function PrListPage() {
       {error && <ErrorBanner message={error} />}
 
       {!loading && !error && pullRequests.length === 0 && (
-        <p className="text-gray-500 mt-10 text-center">
+        <p className="text-gray-500 dark:text-gray-400 mt-10 text-center">
           No pull requests match the current filters.
         </p>
       )}
 
       {!loading && !error && pullRequests.length > 0 && (
-        <div className="bg-white rounded-lg shadow divide-y divide-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow divide-y divide-gray-100 dark:divide-gray-700">
           {pullRequests.map((pr) => (
               <div
                 key={pr.pullRequestId}
-                className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                 onClick={() => navigate(`/pr/${pr.repository.id}/${pr.pullRequestId}`)}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900 truncate">{pr.title}</span>
-                    {pr.isDraft && <Badge text="Draft" color="bg-gray-200 text-gray-600" />}
+                    <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{pr.title}</span>
+                    {pr.isDraft && <Badge text="Draft" color="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300" />}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1 flex gap-3">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex gap-3">
                     <span>{pr.repository.name}</span>
                     <span>{branchName(pr.sourceRefName)} → {branchName(pr.targetRefName)}</span>
                     <span>by {pr.createdBy.displayName}</span>

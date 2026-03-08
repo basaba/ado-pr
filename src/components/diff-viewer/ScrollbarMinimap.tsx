@@ -147,7 +147,7 @@ export function ScrollbarMinimap(props: Props) {
           : { height: containerHeight, width: 10, right: scrollbarWidth }
       }
     >
-      <div className="relative w-full h-full bg-gray-100/50 rounded-sm">
+      <div className="relative w-full h-full bg-gray-100/50 dark:bg-gray-800/50 rounded-sm">
         {markerElements}
       </div>
     </div>

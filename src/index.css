@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@custom-variant dark (&:is(.dark *));
 
 body {
   margin: 0;
@@ -15,6 +16,11 @@ body {
   font-weight: 500;
 }
 
+:is(.dark *) .prose code:not(pre code) {
+  background-color: #374151;
+  color: #e5e7eb;
+}
+
 .prose pre {
   background-color: #1f2937;
   color: #e5e7eb;
@@ -24,6 +30,10 @@ body {
   font-size: 0.85em;
   line-height: 1.6;
   margin: 0.75em 0;
+}
+
+:is(.dark *) .prose pre {
+  background-color: #111827;
 }
 
 .prose pre code {
@@ -48,13 +58,28 @@ body {
   font-weight: 600;
 }
 
+:is(.dark *) .prose thead th {
+  background-color: #1f2937;
+  border-bottom-color: #374151;
+  color: #e5e7eb;
+}
+
 .prose tbody td {
   border-bottom: 1px solid #e5e7eb;
   padding: 0.5rem 0.75rem;
 }
 
+:is(.dark *) .prose tbody td {
+  border-bottom-color: #374151;
+  color: #d1d5db;
+}
+
 .prose tbody tr:hover {
   background-color: #f9fafb;
+}
+
+:is(.dark *) .prose tbody tr:hover {
+  background-color: #1f2937;
 }
 
 .prose blockquote {
@@ -63,4 +88,9 @@ body {
   color: #6b7280;
   margin: 0.75em 0;
   font-style: italic;
+}
+
+:is(.dark *) .prose blockquote {
+  border-left-color: #4b5563;
+  color: #9ca3af;
 }

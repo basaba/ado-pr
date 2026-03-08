@@ -138,19 +138,19 @@ export function PrDetailPage() {
     <div>
       {/* Header */}
       <div className="mb-4">
-        <Link to="/" className="text-sm text-blue-600 hover:underline">
+        <Link to="/" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
           ← Back to list
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-4">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               {pr.title}
-              {pr.isDraft && <Badge text="Draft" color="bg-gray-200 text-gray-600" />}
+              {pr.isDraft && <Badge text="Draft" color="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300" />}
             </h1>
-            <div className="text-sm text-gray-500 mt-1 flex gap-3">
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex gap-3">
               <span>{pr.repository.name}</span>
               <span>
                 {branchName(pr.sourceRefName)} → {branchName(pr.targetRefName)}
@@ -167,7 +167,7 @@ export function PrDetailPage() {
         </div>
 
         {/* Vote button */}
-        <div className="flex gap-2 mt-4 border-t border-gray-100 pt-4">
+        <div className="flex gap-2 mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
           <SplitButton
             disabled={voting}
             size="sm"
@@ -183,7 +183,7 @@ export function PrDetailPage() {
 
         {/* PR actions for owner */}
         {isMyPr && isActive && (
-          <div className="flex gap-2 mt-3 border-t border-gray-100 pt-3 items-center">
+          <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3 items-center">
             <SplitButton
               disabled={actionLoading}
               size="sm"
@@ -194,7 +194,7 @@ export function PrDetailPage() {
               ]}
             />
             {hasAutoComplete && (
-              <span className="text-xs text-blue-600 ml-1">
+              <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">
                 Autocomplete is on
               </span>
             )}
@@ -203,21 +203,21 @@ export function PrDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="flex border-b border-gray-200 sticky top-0 z-20 bg-white rounded-t-lg">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 bg-white dark:bg-gray-800 rounded-t-lg">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               {tab.label}
               {tab.count != null && tab.count > 0 && (
-                <span className="ml-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs">
+                <span className="ml-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs">
                   {tab.count}
                 </span>
               )}

@@ -134,12 +134,12 @@ export function AuthorListPage() {
     <div>
       <button
         onClick={() => navigate('/')}
-        className="text-sm text-blue-600 hover:underline mb-2"
+        className="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-2"
       >
         ← Back to Pull Requests
       </button>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-800">Manage Author Lists</h1>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Manage Author Lists</h1>
         <button
           onClick={handleNewList}
           className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
@@ -149,8 +149,8 @@ export function AuthorListPage() {
       </div>
 
       {listNames.length === 0 && !editingName && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-sm text-gray-400">No author lists yet. Create one to get started.</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <p className="text-sm text-gray-400 dark:text-gray-500">No author lists yet. Create one to get started.</p>
         </div>
       )}
 
@@ -159,7 +159,7 @@ export function AuthorListPage() {
           const authors = lists[name];
           const search = getSearch(name);
           return (
-            <div key={name} className="bg-white rounded-lg shadow p-5 space-y-3">
+            <div key={name} className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 space-y-3">
               <div className="flex items-center justify-between">
                 {editingName === name ? (
                   <input
@@ -170,21 +170,21 @@ export function AuthorListPage() {
                     onKeyDown={(e) => { if (e.key === 'Enter') handleCommitName(name); if (e.key === 'Escape') { handleCommitName(name); } }}
                     onBlur={() => handleCommitName(name)}
                     autoFocus
-                    className="text-base font-semibold text-gray-800 px-2 py-0.5 rounded border border-blue-400 outline-none w-64"
+                    className="text-base font-semibold text-gray-800 dark:text-gray-100 px-2 py-0.5 rounded border border-blue-400 outline-none w-64 dark:bg-gray-700"
                   />
                 ) : (
                   <h2
-                    className="text-base font-semibold text-gray-800 cursor-pointer hover:text-blue-600 group"
+                    className="text-base font-semibold text-gray-800 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 group"
                     onClick={() => { setEditingName(name); setDraftName(name.startsWith('__new_list') ? '' : name); }}
                     title="Click to rename"
                   >
-                    {name.startsWith('__new_list') ? <span className="text-gray-400 italic">Untitled list</span> : name}
-                    <span className="ml-1.5 text-gray-300 group-hover:text-blue-400 text-sm">✏️</span>
+                    {name.startsWith('__new_list') ? <span className="text-gray-400 dark:text-gray-500 italic">Untitled list</span> : name}
+                    <span className="ml-1.5 text-gray-300 dark:text-gray-600 group-hover:text-blue-400 dark:group-hover:text-blue-300 text-sm">✏️</span>
                   </h2>
                 )}
                 <button
                   onClick={() => handleDelete(name)}
-                  className="px-2 py-1 rounded text-sm text-red-500 hover:bg-red-50"
+                  className="px-2 py-1 rounded text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
                   title={`Delete "${name}"`}
                 >
                   🗑 Delete
@@ -196,12 +196,12 @@ export function AuthorListPage() {
                   {authors.map((a) => (
                     <span
                       key={a.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
                     >
                       {a.displayName}
                       <button
                         onClick={() => handleRemoveAuthor(name, a.id)}
-                        className="text-blue-400 hover:text-blue-700"
+                        className="text-blue-400 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-300"
                         title="Remove"
                       >
                         ✕
@@ -210,7 +210,7 @@ export function AuthorListPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">No authors added yet.</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">No authors added yet.</p>
               )}
 
               <div ref={(el) => { searchRefs.current[name] = el; }} className="relative max-w-md">
@@ -220,25 +220,25 @@ export function AuthorListPage() {
                   placeholder="Add author (Enter to search)…"
                   onChange={(e) => { updateSearch(name, { query: e.target.value }); if (!e.target.value) updateSearch(name, { results: [], open: false }); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') doSearch(name, search.query); }}
-                  className="px-3 py-2 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 w-full"
+                  className="px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 w-full"
                 />
-                {search.loading && <span className="absolute right-3 top-2.5 text-gray-400 text-xs animate-pulse">…</span>}
+                {search.loading && <span className="absolute right-3 top-2.5 text-gray-400 dark:text-gray-500 text-xs animate-pulse">…</span>}
                 {search.open && search.results.length > 0 && (
-                  <ul className="absolute z-30 mt-1 w-full max-h-48 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+                  <ul className="absolute z-30 mt-1 w-full max-h-48 overflow-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg text-sm">
                     {search.results.slice(0, 20).map((item) => (
                       <li
                         key={item.id}
                         onClick={() => handleAddAuthor(name, item)}
-                        className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                        className="px-3 py-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
                       >
                         <span>{item.displayName}</span>
-                        {item.mail && <span className="text-gray-400 ml-1 text-xs">{item.mail}</span>}
+                        {item.mail && <span className="text-gray-400 dark:text-gray-500 ml-1 text-xs">{item.mail}</span>}
                       </li>
                     ))}
                   </ul>
                 )}
                 {search.open && search.query && search.results.length === 0 && !search.loading && (
-                  <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg text-sm px-3 py-2 text-gray-400">
+                  <div className="absolute z-30 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg text-sm px-3 py-2 text-gray-400 dark:text-gray-500">
                     No users found
                   </div>
                 )}

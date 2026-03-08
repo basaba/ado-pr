@@ -10,7 +10,7 @@ const variantClasses: Record<string, string> = {
   success: 'bg-green-600 text-white hover:bg-green-700',
   warning: 'bg-yellow-500 text-white hover:bg-yellow-600',
   danger: 'bg-red-600 text-white hover:bg-red-700',
-  ghost: 'bg-transparent text-gray-700 hover:bg-gray-100',
+  ghost: 'bg-transparent text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700',
 };
 
 const sizeClasses: Record<string, string> = {

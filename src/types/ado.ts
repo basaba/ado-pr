@@ -158,9 +158,9 @@ export const VOTE_LABELS: Record<number, string> = {
 };
 
 export const VOTE_COLORS: Record<number, string> = {
-  10: 'text-green-600',
-  5: 'text-green-500',
-  0: 'text-gray-400',
-  '-5': 'text-yellow-500',
-  '-10': 'text-red-600',
+  10: 'text-green-600 dark:text-green-400',
+  5: 'text-green-500 dark:text-green-400',
+  0: 'text-gray-400 dark:text-gray-500',
+  '-5': 'text-yellow-500 dark:text-yellow-400',
+  '-10': 'text-red-600 dark:text-red-400',
 };

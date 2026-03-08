@@ -38,67 +38,67 @@ export function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[80vh]">
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Connect to Azure DevOps</h1>
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 w-full max-w-md">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Connect to Azure DevOps</h1>
 
         {error && <ErrorBanner message={error} />}
 
-        <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded p-3 text-sm text-blue-800 dark:text-blue-300">
           Authenticates via <strong>Azure CLI</strong>. Run{' '}
-          <code className="bg-blue-100 px-1 rounded">az login</code> in your terminal before
+          <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">az login</code> in your terminal before
           connecting.
         </div>
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Server URL</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Server URL</label>
           <input
             type="url"
             required
             placeholder="https://dev.azure.com"
             value={serverUrl}
             onChange={(e) => setServerUrl(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Organization</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Organization</label>
           <input
             type="text"
             required
             placeholder="msazure"
             value={organization}
             onChange={(e) => setOrganization(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Name</label>
           <input
             type="text"
             required
             placeholder="MyProject"
             value={project}
             onChange={(e) => setProject(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Local Repo Path <span className="text-gray-400 font-normal">(optional)</span>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Local Repo Path <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
           </label>
           <input
             type="text"
             placeholder="/path/to/local/repo"
             value={repoPath}
             onChange={(e) => setRepoPath(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             When set, Copilot can explore files in this directory during reviews.
-            Auto-populated from <code className="bg-gray-100 px-1 rounded">ADO_PR_REPO_PATH</code> env var.
+            Auto-populated from <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">ADO_PR_REPO_PATH</code> env var.
           </p>
         </div>
 

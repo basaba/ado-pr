@@ -142,7 +142,7 @@ export function CopilotTab({ pr, threads, changes, fetchFilePair }: CopilotTabPr
 
   if (!diffsReady && !error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
         <Spinner />
         <p className="mt-3 text-sm">Loading PR diffs for Copilot context…</p>
       </div>
@@ -152,19 +152,19 @@ export function CopilotTab({ pr, threads, changes, fetchFilePair }: CopilotTabPr
   return (
     <div className="flex flex-col h-[600px]">
       {/* Status bar */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200 bg-gray-50 text-xs">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs">
         {repoPath && (
-          <div className="flex items-center gap-1.5 text-green-700 bg-green-50 border border-green-200 rounded px-2.5 py-1">
+          <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded px-2.5 py-1">
             <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
             Local repo: {repoPath}
           </div>
         )}
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded border ${
           connected
-            ? 'text-green-700 bg-green-50 border-green-200'
-            : 'text-gray-500 bg-gray-100 border-gray-200'
+            ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800'
+            : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-700'
         }`}>
-          <span className={`inline-block w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-400'}`} />
+          <span className={`inline-block w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-500'}`} />
           {connected ? 'Connected' : 'Disconnected'}
         </div>
         {exited && (
@@ -179,7 +179,7 @@ export function CopilotTab({ pr, threads, changes, fetchFilePair }: CopilotTabPr
 
       {/* Error banner */}
       {error && (
-        <div className="mx-4 mt-2 rounded bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+        <div className="mx-4 mt-2 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}

@@ -22,28 +22,28 @@ export function OverviewTab({ pr, threads, usersMap, currentUserId }: Props) {
     <div className="space-y-6">
       {/* Description */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-2">Description</h2>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Description</h2>
         {pr.description ? (
-          <div className="bg-gray-50 rounded p-4">
-            <MarkdownContent content={pr.description} className="text-gray-700" usersMap={usersMap} />
+          <div className="bg-gray-50 dark:bg-gray-900 rounded p-4">
+            <MarkdownContent content={pr.description} className="text-gray-700 dark:text-gray-200" usersMap={usersMap} />
           </div>
         ) : (
-          <p className="text-gray-400 text-sm italic">No description provided.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm italic">No description provided.</p>
         )}
       </section>
 
       {/* Reviewers */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-2">Reviewers</h2>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Reviewers</h2>
         <div className="space-y-2">
           {pr.reviewers.map((r) => (
             <div key={r.id} className="flex items-center gap-3 text-sm">
-              <span className="font-medium text-gray-800">{r.displayName}</span>
-              <span className={`text-xs ${VOTE_COLORS[r.vote] || 'text-gray-400'}`}>
+              <span className="font-medium text-gray-800 dark:text-gray-100">{r.displayName}</span>
+              <span className={`text-xs ${VOTE_COLORS[r.vote] || 'text-gray-400 dark:text-gray-500'}`}>
                 {VOTE_LABELS[r.vote] || 'No vote'}
               </span>
               {r.isRequired && (
-                <span className="text-xs text-orange-600 font-medium">Required</span>
+                <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">Required</span>
               )}
             </div>
           ))}
@@ -52,7 +52,7 @@ export function OverviewTab({ pr, threads, usersMap, currentUserId }: Props) {
 
       {/* General comments */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-2">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
           Comments ({generalThreads.length})
         </h2>
         <ThreadList
@@ -91,7 +91,7 @@ function NewCommentBox({ onSubmit }: { onSubmit: (content: string) => Promise<un
         onChange={(e) => setText(e.target.value)}
         placeholder="Add a comment..."
         rows={3}
-        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
       />
       <div className="flex justify-end mt-2">
         <button

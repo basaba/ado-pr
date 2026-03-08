@@ -175,8 +175,8 @@ export function DiffViewer({
       const el = scrollContainerRef.current?.querySelector(`[data-line="${scrollToLine}"]`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('bg-yellow-200');
-        setTimeout(() => el.classList.remove('bg-yellow-200'), 2000);
+        el.classList.add('bg-yellow-200', 'dark:bg-yellow-800/40');
+        setTimeout(() => el.classList.remove('bg-yellow-200', 'dark:bg-yellow-800/40'), 2000);
       }
       onScrollHandled?.();
     }, 100);
@@ -196,13 +196,13 @@ export function DiffViewer({
   };
 
   const lineColors: Record<string, string> = {
-    added: 'bg-green-50', removed: 'bg-red-50', unchanged: '',
+    added: 'bg-green-50 dark:bg-green-900/20', removed: 'bg-red-50 dark:bg-red-900/20', unchanged: '',
   };
   const lineTextColors: Record<string, string> = {
-    added: 'text-green-800', removed: 'text-red-800', unchanged: 'text-gray-700',
+    added: 'text-green-800 dark:text-green-400', removed: 'text-red-800 dark:text-red-400', unchanged: 'text-gray-700 dark:text-gray-200',
   };
   const gutterColors: Record<string, string> = {
-    added: 'bg-green-100 text-green-700', removed: 'bg-red-100 text-red-700', unchanged: 'bg-gray-50 text-gray-400',
+    added: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400', removed: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400', unchanged: 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500',
   };
 
   // Threads not matched to any diff line
@@ -254,10 +254,10 @@ export function DiffViewer({
     <div className="text-xs font-mono relative" ref={scrollContainerRef}>
       <div className="min-w-0 overflow-x-auto">
         {hasCollapsed && (
-          <div className="flex justify-end px-3 py-1.5 bg-gray-50 border-b border-gray-200 font-sans">
+          <div className="flex justify-end px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 font-sans">
             <button
               onClick={() => { setExpanded(!expanded); setExpandedSections(new Set()); }}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
               {expanded ? '⊟ Compact diff' : '⊞ Show full file'}
             </button>
@@ -279,8 +279,8 @@ export function DiffViewer({
                   }
                   return (
                     <tr key={`sep-${hunkIdx}`} className="select-none cursor-pointer group" onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}>
-                      <td colSpan={2} className="bg-blue-50 group-hover:bg-blue-100 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
-                      <td colSpan={2} className="bg-blue-50 group-hover:bg-blue-100" />
+                      <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
+                      <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900" />
                     </tr>
                   );
                 })}
@@ -288,8 +288,8 @@ export function DiffViewer({
         </table>
 
         {unmatchedThreads.length > 0 && (
-          <div className="border-t border-gray-200 p-4 font-sans">
-            <p className="text-xs text-gray-500 mb-2">
+          <div className="border-t border-gray-200 dark:border-gray-700 p-4 font-sans">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
               💬 {unmatchedThreads.length} comment{unmatchedThreads.length !== 1 ? 's' : ''} on this file (not matched to a diff line):
             </p>
             {unmatchedThreads.map((thread) => (
@@ -338,7 +338,7 @@ function DiffLineRow({
       <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.oldLineNum ?? ''}</td>
       <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.newLineNum ?? ''}</td>
       <td
-        className={`w-5 text-center px-1 py-0 select-none ${gutterColors[line.type]} ${lineThreads.length > 0 ? '' : 'cursor-pointer hover:bg-blue-100'}`}
+        className={`w-5 text-center px-1 py-0 select-none ${gutterColors[line.type]} ${lineThreads.length > 0 ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
         onClick={lineThreads.length > 0 ? undefined : onGutterClick}
         title={lineThreads.length > 0 ? undefined : 'Add comment'}
       >
@@ -444,7 +444,7 @@ function AddCommentPopover({
       <span
         ref={indicatorRef}
         onClick={handleClick}
-        className="cursor-pointer hover:text-blue-600"
+        className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
         title="Add comment"
       >
         +
@@ -452,7 +452,7 @@ function AddCommentPopover({
       {isOpen && createPortal(
         <div
           ref={popoverRef}
-          className="absolute z-[9999] bg-gray-50 border border-gray-200 rounded-2xl shadow-xl font-sans"
+          className="absolute z-[9999] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl font-sans"
           style={{ top: pos.top, left: pos.left, width: 400 }}
         >
           <div className="p-3">
@@ -462,10 +462,10 @@ function AddCommentPopover({
               onChange={(e) => onCommentTextChange(e.target.value)}
               rows={3}
               placeholder="Write your comment..."
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <div className="flex gap-2 mt-2 justify-end">
-              <button onClick={onCancelComment} className="text-xs text-gray-500 hover:underline">Cancel</button>
+              <button onClick={onCancelComment} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>
               <button
                 onClick={onSubmitComment}
                 disabled={sending || !commentText.trim()}
@@ -576,13 +576,13 @@ function CommentIndicator({
           </span>
         )}
         {extraCount > 0 && (
-          <span className="text-[8px] font-semibold text-gray-500 leading-none">+{extraCount}</span>
+          <span className="text-[8px] font-semibold text-gray-500 dark:text-gray-400 leading-none">+{extraCount}</span>
         )}
       </span>
       {isOpen && createPortal(
         <div
           ref={popoverRef}
-          className="absolute z-[9999] bg-gray-50 border border-gray-200 rounded-2xl shadow-xl max-h-80 overflow-y-auto"
+          className="absolute z-[9999] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl max-h-80 overflow-y-auto"
           style={{ top: pos.top, left: pos.left, width: 450 }}
         >
           <div className="p-3 space-y-3">
@@ -644,11 +644,11 @@ function InlineThread({
     <div className="font-sans text-sm space-y-1">
       {hidden && (
         <div className="flex items-center gap-2 text-xs">
-          <span className={`rounded px-1 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+          <span className={`rounded px-1 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}`}>
             {thread.status}
           </span>
-          <span className="text-gray-400 italic">({textComments.length} comment{textComments.length !== 1 ? 's' : ''} hidden)</span>
-          <button onClick={() => onToggleHideThread?.(thread.id)} className="text-blue-600 hover:underline">Show</button>
+          <span className="text-gray-400 dark:text-gray-500 italic">({textComments.length} comment{textComments.length !== 1 ? 's' : ''} hidden)</span>
+          <button onClick={() => onToggleHideThread?.(thread.id)} className="text-blue-600 dark:text-blue-400 hover:underline">Show</button>
         </div>
       )}
       {!hidden && (
@@ -668,11 +668,11 @@ function InlineThread({
                 </div>
                 <div className={`max-w-[80%] ${isMe ? 'items-end' : 'items-start'}`}>
                   <div className={`flex items-baseline gap-1.5 mb-0.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <span className="font-medium text-gray-600 text-[11px]">{c.author.displayName}</span>
-                    <span className="text-gray-400 text-[10px]">{formatDate(c.publishedDate)}</span>
+                    <span className="font-medium text-gray-600 dark:text-gray-300 text-[11px]">{c.author.displayName}</span>
+                    <span className="text-gray-400 dark:text-gray-500 text-[10px]">{formatDate(c.publishedDate)}</span>
                   </div>
-                  <div className={`rounded-2xl px-3 py-1.5 ${isMe ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}>
-                    <MarkdownContent content={c.content} className={`text-sm [&_p]:m-0 ${isMe ? 'text-white [&_a]:text-blue-100' : 'text-gray-800'}`} usersMap={usersMap} />
+                  <div className={`rounded-2xl px-3 py-1.5 ${isMe ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-sm'}`}>
+                    <MarkdownContent content={c.content} className={`text-sm [&_p]:m-0 ${isMe ? 'text-white [&_a]:text-blue-100' : 'text-gray-800 dark:text-gray-100'}`} usersMap={usersMap} />
                   </div>
                 </div>
               </div>
@@ -681,9 +681,9 @@ function InlineThread({
           {showReply && (
             <div className="mt-2">
               <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} rows={2}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reply..." />
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reply..." />
               <div className="flex gap-2 mt-1 justify-end">
-                <button onClick={() => setShowReply(false)} className="text-xs text-gray-500 hover:underline">Cancel</button>
+                <button onClick={() => setShowReply(false)} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>
                 <button onClick={handleReply} disabled={sending}
                   className="px-3 py-1 bg-blue-500 text-white rounded-full text-xs disabled:opacity-50">Reply</button>
               </div>
@@ -692,28 +692,28 @@ function InlineThread({
           {!showReply && (
             <div className={`flex items-center justify-between text-xs ${textComments.length > 0 ? 'mt-1' : ''}`}>
               <div className="flex items-center gap-2">
-                <button onClick={() => setShowReply(true)} className="text-blue-600 hover:underline">Reply</button>
+                <button onClick={() => setShowReply(true)} className="text-blue-600 dark:text-blue-400 hover:underline">Reply</button>
               {isPrOwner && thread.status === 'active' && (
                 <>
-                  <span className="text-gray-300">|</span>
-                  <button onClick={() => onSetStatus(thread.id, 'fixed')} className="text-green-600 hover:underline">Resolve</button>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <button onClick={() => onSetStatus(thread.id, 'fixed')} className="text-green-600 dark:text-green-400 hover:underline">Resolve</button>
                 </>
               )}
               {isPrOwner && thread.status !== 'active' && (
                 <>
-                  <span className="text-gray-300">|</span>
-                  <button onClick={() => onSetStatus(thread.id, 'active')} className="text-blue-600 hover:underline">Reopen</button>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <button onClick={() => onSetStatus(thread.id, 'active')} className="text-blue-600 dark:text-blue-400 hover:underline">Reopen</button>
                 </>
               )}
               {onDeleteComment && textComments.length > 0 && currentUserId && textComments[textComments.length - 1].author.id === currentUserId && (
                 <>
-                  <span className="text-gray-300">|</span>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
                   <button onClick={() => { if (confirm('Delete this comment?')) onDeleteComment(thread.id, textComments[textComments.length - 1].id); }}
-                    className="text-red-400 hover:text-red-600 hover:underline">Delete</button>
+                    className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:underline">Delete</button>
                 </>
               )}
               </div>
-              <span className={`rounded px-1.5 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+              <span className={`rounded px-1.5 py-0.5 font-medium ${thread.status === 'active' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}`}>
                 {thread.status}
               </span>
             </div>

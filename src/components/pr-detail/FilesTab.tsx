@@ -31,7 +31,7 @@ function ScrollingPath({ text }: { text: string }) {
     >
       <span
         ref={innerRef}
-        className="font-mono text-sm text-gray-800 whitespace-nowrap inline-block transition-transform duration-500 ease-in-out"
+        className="font-mono text-sm text-gray-800 dark:text-gray-100 whitespace-nowrap inline-block transition-transform duration-500 ease-in-out"
         style={{ transform: `translateX(-${offset}px)` }}
       >
         {text}
@@ -234,9 +234,9 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   }, []);
 
   if (diff.loading) return <Spinner className="py-10" />;
-  if (diff.error) return <p className="text-red-600 text-sm">{diff.error}</p>;
+  if (diff.error) return <p className="text-red-600 dark:text-red-400 text-sm">{diff.error}</p>;
   if (diff.changes.length === 0) {
-    return <p className="text-gray-400 text-sm italic">No file changes found.</p>;
+    return <p className="text-gray-400 dark:text-gray-500 text-sm italic">No file changes found.</p>;
   }
 
   const selectedChange = diff.changes.find((c) => changePath(c) === selectedFile);
@@ -259,9 +259,9 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
   return (
     <div className="flex gap-0">
       {/* File tree sidebar — stretches full height, content is sticky */}
-      <div className="shrink-0 border-r border-gray-200 bg-gray-50" style={{ width: sidebarWidth }}>
+      <div className="shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" style={{ width: sidebarWidth }}>
         <div className="sticky top-0 overflow-y-auto" style={{ maxHeight: '100vh' }}>
-          <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-200 sticky top-0 bg-gray-50 z-10">
+          <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-gray-50 dark:bg-gray-900 z-10">
             {diff.changes.length} changed file{diff.changes.length !== 1 ? 's' : ''}
           </div>
           <div className="py-1">
@@ -283,14 +283,14 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
       {/* Drag handle to resize the sidebar */}
       <div
         onMouseDown={startDrag}
-        className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 transition-colors shrink-0"
+        className="w-1 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-600 active:bg-blue-500 transition-colors shrink-0"
       />
 
       {/* Diff viewer area — flows naturally with page scroll */}
       <div className="flex-1 min-w-0" ref={contentRef}>
         {selectedFile && selectedChange ? (
           <div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
               <ScrollingPath text={selectedFile} />
               <Badge
                 text={changeTypeLabel(selectedChange.changeType)}
@@ -298,7 +298,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
               />
               {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
               {fileThreads.length > 0 && (
-                <span className="text-xs text-blue-600">💬 {fileThreads.length}</span>
+                <span className="text-xs text-blue-600 dark:text-blue-400">💬 {fileThreads.length}</span>
               )}
             </div>
             {loadingFile ? (
@@ -335,7 +335,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
             ) : null}
           </div>
         ) : (
-          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+          <div className="flex items-center justify-center h-64 text-gray-400 dark:text-gray-500 text-sm">
             Select a file to view changes
           </div>
         )}
@@ -371,10 +371,10 @@ function FileTreeNode({
   const paddingLeft = 12 + depth * 16;
 
   const changeColor: Record<string, string> = {
-    add: 'text-green-600',
-    edit: 'text-blue-600',
-    delete: 'text-red-600',
-    rename: 'text-yellow-600',
+    add: 'text-green-600 dark:text-green-400',
+    edit: 'text-blue-600 dark:text-blue-400',
+    delete: 'text-red-600 dark:text-red-400',
+    rename: 'text-yellow-600 dark:text-yellow-400',
   };
 
   if (isFile) {
@@ -382,19 +382,19 @@ function FileTreeNode({
       <div
         className={`flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs transition-colors truncate ${
           isSelected
-            ? 'bg-blue-100 text-blue-900 font-medium'
-            : 'text-gray-700 hover:bg-gray-100'
+            ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-200 font-medium'
+            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
         }`}
         style={{ paddingLeft }}
         onClick={() => onFileClick(node.path)}
         title={node.path}
       >
-        <span className={`shrink-0 ${changeColor[node.change!.changeType] || 'text-gray-400'}`}>
+        <span className={`shrink-0 ${changeColor[node.change!.changeType] || 'text-gray-400 dark:text-gray-500'}`}>
           {node.change!.changeType === 'add' ? '+' : node.change!.changeType === 'delete' ? '−' : '●'}
         </span>
         <span className={`truncate ${node.change!.changeType === 'delete' ? 'line-through opacity-60' : ''}`}>{node.name}</span>
         {node.threadCount > 0 && (
-          <span className="shrink-0 ml-auto text-blue-500 text-[10px]">💬{node.threadCount}</span>
+          <span className="shrink-0 ml-auto text-blue-500 dark:text-blue-400 text-[10px]">💬{node.threadCount}</span>
         )}
       </div>
     );
@@ -404,11 +404,11 @@ function FileTreeNode({
     return (
       <>
         <div
-          className="flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs text-gray-500 hover:bg-gray-100 transition-colors"
+          className="flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           style={{ paddingLeft }}
           onClick={() => onToggleDir(node.path)}
         >
-          <span className="shrink-0 text-gray-400 w-3 text-center">
+          <span className="shrink-0 text-gray-400 dark:text-gray-500 w-3 text-center">
             {isCollapsed ? '▸' : '▾'}
           </span>
           <span className="font-medium truncate">{node.name}</span>
@@ -453,9 +453,9 @@ function LineStats({ oldContent, newContent }: { oldContent: string; newContent:
 
   return (
     <span className="flex items-center gap-1.5 text-xs font-mono ml-auto shrink-0">
-      {added > 0 && <span className="text-green-600 font-medium">+{added}</span>}
-      {deleted > 0 && <span className="text-red-600 font-medium">−{deleted}</span>}
-      {added === 0 && deleted === 0 && <span className="text-gray-400">no changes</span>}
+      {added > 0 && <span className="text-green-600 dark:text-green-400 font-medium">+{added}</span>}
+      {deleted > 0 && <span className="text-red-600 dark:text-red-400 font-medium">−{deleted}</span>}
+      {added === 0 && deleted === 0 && <span className="text-gray-400 dark:text-gray-500">no changes</span>}
     </span>
   );
 }

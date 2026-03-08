@@ -11,7 +11,7 @@ interface Props {
 export function MarkdownContent({ content, className = '', usersMap }: Props) {
   const processed = usersMap ? preprocessMentions(content, usersMap) : content;
   return (
-    <div className={`prose prose-sm max-w-none break-words ${className}`}>
+    <div className={`prose prose-sm dark:prose-invert max-w-none break-words ${className}`}>
       <Markdown remarkPlugins={[remarkGfm]}>{processed}</Markdown>
     </div>
   );

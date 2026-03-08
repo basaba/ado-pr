@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context';
+import { AuthProvider, useAuth, ThemeProvider } from './context';
 import { AppShell } from './components/layout';
 import { LoginPage, PrListPage, PrDetailPage, AuthorListPage, CreatePrPage } from './pages';
 import { Spinner } from './components/common';
@@ -21,7 +21,8 @@ function LoginRoute() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/login" element={<LoginRoute />} />
@@ -60,6 +61,7 @@ export default function App() {
           </Route>
         </Routes>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
