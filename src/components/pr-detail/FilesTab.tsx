@@ -321,6 +321,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                 onReply={threads.reply}
                 onSetStatus={threads.setStatus}
                 onDeleteComment={threads.removeComment}
+                onToggleLike={threads.toggleLike}
                 usersMap={usersMap}
                 currentUserId={currentUserId}
                 isPrOwner={isPrOwner}

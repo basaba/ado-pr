@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { PullRequestThread } from '../types';
-import { listThreads, createThread, replyToThread, updateThreadStatus, deleteComment } from '../api';
+import { listThreads, createThread, replyToThread, updateThreadStatus, deleteComment, likeComment, unlikeComment } from '../api';
 import type { ThreadStatus } from '../types';
 
 export function useThreads(repoId: string, prId: number) {
@@ -71,5 +71,45 @@ export function useThreads(repoId: string, prId: number) {
     [repoId, prId],
   );
 
-  return { threads, loading, error, refresh, addThread, reply, setStatus, removeComment };
+  const toggleLike = useCallback(
+    async (threadId: number, commentId: number, currentUserId: string) => {
+      setThreads((prev) =>
+        prev.map((t) => {
+          if (t.id !== threadId) return t;
+          return {
+            ...t,
+            comments: t.comments.map((c) => {
+              if (c.id !== commentId) return c;
+              const liked = c.usersLiked ?? [];
+              const alreadyLiked = liked.some((u) => u.id === currentUserId);
+              return {
+                ...c,
+                usersLiked: alreadyLiked
+                  ? liked.filter((u) => u.id !== currentUserId)
+                  : [...liked, { id: currentUserId, displayName: '', uniqueName: '' }],
+              };
+            }),
+          };
+        }),
+      );
+
+      const comment = threads
+        .find((t) => t.id === threadId)
+        ?.comments.find((c) => c.id === commentId);
+      const alreadyLiked = comment?.usersLiked?.some((u) => u.id === currentUserId) ?? false;
+
+      try {
+        if (alreadyLiked) {
+          await unlikeComment(repoId, prId, threadId, commentId);
+        } else {
+          await likeComment(repoId, prId, threadId, commentId);
+        }
+      } catch {
+        await refresh();
+      }
+    },
+    [repoId, prId, threads, refresh],
+  );
+
+  return { threads, loading, error, refresh, addThread, reply, setStatus, removeComment, toggleLike };
 }

@@ -119,6 +119,7 @@ export function ThreadsTab({ threads, usersMap, currentUserId, isPrOwner, onNavi
         onReply={threads.reply}
         onSetStatus={threads.setStatus}
         onDeleteComment={threads.removeComment}
+        onToggleLike={threads.toggleLike}
         usersMap={usersMap}
         currentUserId={currentUserId}
         isPrOwner={isPrOwner}

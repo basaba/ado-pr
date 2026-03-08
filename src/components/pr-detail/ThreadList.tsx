@@ -8,13 +8,14 @@ interface Props {
   onReply: (threadId: number, content: string) => Promise<void>;
   onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
   onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
+  onToggleLike?: (threadId: number, commentId: number, currentUserId: string) => Promise<void>;
   usersMap?: Record<string, string>;
   currentUserId?: string;
   isPrOwner?: boolean;
   onNavigateToFile?: (filePath: string, line?: number) => void;
 }
 
-export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, usersMap, currentUserId, isPrOwner, onNavigateToFile }: Props) {
+export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, onToggleLike, usersMap, currentUserId, isPrOwner, onNavigateToFile }: Props) {
   if (threads.length === 0) {
     return <p className="text-gray-400 dark:text-gray-500 text-sm italic">No threads yet.</p>;
   }
@@ -28,6 +29,7 @@ export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, use
           onReply={onReply}
           onSetStatus={onSetStatus}
           onDeleteComment={onDeleteComment}
+          onToggleLike={onToggleLike}
           usersMap={usersMap}
           currentUserId={currentUserId}
           isPrOwner={isPrOwner}
@@ -43,6 +45,7 @@ function ThreadItem({
   onReply,
   onSetStatus,
   onDeleteComment,
+  onToggleLike,
   usersMap,
   currentUserId,
   isPrOwner,
@@ -52,6 +55,7 @@ function ThreadItem({
   onReply: Props['onReply'];
   onSetStatus: Props['onSetStatus'];
   onDeleteComment?: Props['onDeleteComment'];
+  onToggleLike?: Props['onToggleLike'];
   usersMap?: Record<string, string>;
   currentUserId?: string;
   isPrOwner?: boolean;
@@ -126,7 +130,7 @@ function ThreadItem({
             {textComments.map((comment) => {
               const isMe = currentUserId != null && comment.author.id === currentUserId;
               return (
-                <div key={comment.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div key={comment.id} className={`group/comment flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div className="flex-shrink-0 mt-1">
                     {comment.author.imageUrl ? (
                       <img src={comment.author.imageUrl} alt={comment.author.displayName} className="rounded-full object-cover" style={{ width: 22, height: 22, minWidth: 22, minHeight: 22 }} />
@@ -144,6 +148,26 @@ function ThreadItem({
                     <div className={`rounded-2xl px-3 py-1.5 ${isMe ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-sm border border-gray-200 dark:border-gray-700'}`}>
                       <MarkdownContent content={comment.content} className={`text-sm [&_p]:m-0 ${isMe ? 'text-white [&_a]:text-blue-100' : 'text-gray-800 dark:text-gray-100'}`} usersMap={usersMap} />
                     </div>
+                    {onToggleLike && currentUserId && (
+                      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} transition-opacity duration-200 ${
+                        (comment.usersLiked?.length ?? 0) === 0 ? 'opacity-0 group-hover/comment:opacity-100' : ''
+                      }`}>
+                        <button
+                          onClick={() => onToggleLike(thread.id, comment.id, currentUserId)}
+                          className={`text-[11px] mt-0.5 flex items-center gap-1 transition-colors duration-200 ${
+                            comment.usersLiked?.some((u) => u.id === currentUserId)
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400'
+                          }`}
+                          title={comment.usersLiked?.map((u) => u.displayName).join(', ') || 'Like'}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                            <path d="M1 8.25a1.25 1.25 0 1 1 2.5 0v7.5a1.25 1.25 0 1 1-2.5 0v-7.5ZM5.5 6V3.5a2.5 2.5 0 0 1 5 0V6h3.25a2.25 2.25 0 0 1 2.227 2.568l-1 7A2.25 2.25 0 0 1 12.75 17.5H5.5V6Z" />
+                          </svg>
+                          {(comment.usersLiked?.length ?? 0) > 0 && <span>{comment.usersLiked!.length}</span>}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

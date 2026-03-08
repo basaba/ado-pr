@@ -88,6 +88,7 @@ export interface ThreadComment {
   lastUpdatedDate: string;
   commentType: 'text' | 'system';
   parentCommentId?: number;
+  usersLiked?: IdentityRef[];
 }
 
 export interface PullRequestIteration {

@@ -66,3 +66,24 @@ export async function deleteComment(
     `${basePath(repoId, prId)}/${threadId}/comments/${commentId}`,
   );
 }
+
+export async function likeComment(
+  repoId: string,
+  prId: number,
+  threadId: number,
+  commentId: number,
+): Promise<void> {
+  const url = `${basePath(repoId, prId)}/${threadId}/comments/${commentId}`;
+  await adoClient.post(`${url}/likes`, {});
+}
+
+export async function unlikeComment(
+  repoId: string,
+  prId: number,
+  threadId: number,
+  commentId: number,
+): Promise<void> {
+  await adoClient.delete(
+    `${basePath(repoId, prId)}/${threadId}/comments/${commentId}/likes`,
+  );
+}
