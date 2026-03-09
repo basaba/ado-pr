@@ -220,7 +220,7 @@ export function CreatePrPage() {
                 setSourceBranchOpen(true);
               }}
               onFocus={() => setSourceBranchOpen(true)}
-              className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed"
             />
             {branchesLoading && (
               <span className="absolute right-3 top-2.5 text-gray-400 dark:text-gray-500 text-xs animate-pulse">Loading…</span>
@@ -237,8 +237,8 @@ export function CreatePrPage() {
                         setSourceBranchQuery('');
                         setSourceBranchOpen(false);
                       }}
-                      className={`px-3 py-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 ${
-                        sourceBranch === name ? 'bg-blue-100 dark:bg-blue-900 font-medium' : ''
+                      className={`px-3 py-2 cursor-pointer text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${
+                        sourceBranch === name ? 'bg-blue-100 dark:bg-blue-900 font-medium text-blue-900 dark:text-blue-200' : ''
                       }`}
                     >
                       {name}
@@ -265,7 +265,7 @@ export function CreatePrPage() {
                 setTargetBranchOpen(true);
               }}
               onFocus={() => setTargetBranchOpen(true)}
-              className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed"
             />
             {targetBranchOpen && filteredTargetBranches.length > 0 && (
               <ul className="absolute z-10 mt-1 w-full max-h-48 overflow-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg text-sm">
@@ -279,8 +279,8 @@ export function CreatePrPage() {
                         setTargetBranchQuery('');
                         setTargetBranchOpen(false);
                       }}
-                      className={`px-3 py-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 ${
-                        targetBranch === name ? 'bg-blue-100 dark:bg-blue-900 font-medium' : ''
+                      className={`px-3 py-2 cursor-pointer text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${
+                        targetBranch === name ? 'bg-blue-100 dark:bg-blue-900 font-medium text-blue-900 dark:text-blue-200' : ''
                       }`}
                     >
                       {name}
@@ -358,7 +358,7 @@ export function CreatePrPage() {
                   <li
                     key={user.id}
                     onClick={() => handleAddReviewer(user)}
-                    className="px-3 py-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                    className="px-3 py-2 cursor-pointer text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
                   >
                     <div className="font-medium">{user.displayName}</div>
                     {user.mail && (
