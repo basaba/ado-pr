@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { useThreads } from '../../hooks';
 import { useSearchParamState, useSearchParamStateSet } from '../../hooks';
 import type { ThreadStatus } from '../../types';
 import { isTextComment } from '../../utils';
 import { ThreadList } from './ThreadList';
+import { MentionTextarea } from '../common';
 import type { IdentitySearchResult } from '../../api/pullRequests';
 
 interface Props {
@@ -130,6 +131,55 @@ export function ThreadsTab({ threads, usersMap, currentUserId, isPrOwner, onNavi
         knownUsers={knownUsers}
         onMentionInserted={onMentionInserted}
       />
+
+      <NewCommentBox
+        onSubmit={(content) => threads.addThread(content)}
+        knownUsers={knownUsers}
+        onMentionInserted={onMentionInserted}
+      />
+    </div>
+  );
+}
+
+function NewCommentBox({ onSubmit, knownUsers = [], onMentionInserted }: {
+  onSubmit: (content: string) => Promise<unknown>;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
+}) {
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!text.trim()) return;
+    setSending(true);
+    try {
+      await onSubmit(text);
+      setText('');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="mt-4">
+      <MentionTextarea
+        value={text}
+        onChange={setText}
+        placeholder="Add a comment... (@ to mention)"
+        rows={3}
+        className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+        knownUsers={knownUsers}
+        onMentionInserted={onMentionInserted}
+      />
+      <div className="flex justify-end mt-2">
+        <button
+          onClick={handleSubmit}
+          disabled={sending || !text.trim()}
+          className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          {sending ? 'Posting...' : 'Comment'}
+        </button>
+      </div>
     </div>
   );
 }
