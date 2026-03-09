@@ -60,6 +60,7 @@ interface Props {
   onNavigateHandled?: () => void;
   currentUserId?: string;
   isPrOwner?: boolean;
+  onMentionInserted?: (user: { id: string; displayName: string }) => void;
 }
 
 interface TreeNode {
@@ -119,7 +120,7 @@ function buildFileTree(
   return collapse(root);
 }
 
-export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId, isPrOwner }: Props) {
+export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId, isPrOwner, onMentionInserted }: Props) {
   const [selectedFile, setSelectedFile] = useSearchParamStateNullable('file');
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
@@ -332,6 +333,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                   else next.add(threadId);
                   return next;
                 })}
+                onMentionInserted={onMentionInserted}
               />
             ) : null}
           </div>

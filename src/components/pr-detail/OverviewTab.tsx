@@ -2,20 +2,28 @@ import type { PullRequest } from '../../types';
 import { VOTE_LABELS, VOTE_COLORS } from '../../types';
 import type { useThreads } from '../../hooks';
 import { isTextComment } from '../../utils';
-import { MarkdownContent } from '../common';
+import { MarkdownContent, MentionTextarea } from '../common';
 import { ThreadList } from './ThreadList';
+import type { IdentitySearchResult } from '../../api/pullRequests';
 
 interface Props {
   pr: PullRequest;
   threads: ReturnType<typeof useThreads>;
   usersMap: Record<string, string>;
   currentUserId?: string;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }
 
-export function OverviewTab({ pr, threads, usersMap, currentUserId }: Props) {
+export function OverviewTab({ pr, threads, usersMap, currentUserId, knownUsers: knownUsersProp, onMentionInserted }: Props) {
   // Filter general (non-file-specific) threads
   const generalThreads = threads.threads.filter(
     (t) => !t.threadContext?.filePath && t.comments.some((c) => isTextComment(c.commentType)),
+  );
+
+  const knownUsers: IdentitySearchResult[] = useMemo(
+    () => knownUsersProp ?? Object.entries(usersMap).map(([id, displayName]) => ({ id, displayName })),
+    [knownUsersProp, usersMap],
   );
 
   return (
@@ -62,14 +70,16 @@ export function OverviewTab({ pr, threads, usersMap, currentUserId }: Props) {
           onDeleteComment={threads.removeComment}
           usersMap={usersMap}
           currentUserId={currentUserId}
+          knownUsers={knownUsers}
+          onMentionInserted={onMentionInserted}
         />
-        <NewCommentBox onSubmit={(content) => threads.addThread(content)} />
+        <NewCommentBox onSubmit={(content) => threads.addThread(content)} knownUsers={knownUsers} onMentionInserted={onMentionInserted} />
       </section>
     </div>
   );
 }
 
-function NewCommentBox({ onSubmit }: { onSubmit: (content: string) => Promise<unknown> }) {
+function NewCommentBox({ onSubmit, knownUsers = [], onMentionInserted }: { onSubmit: (content: string) => Promise<unknown>; knownUsers?: IdentitySearchResult[]; onMentionInserted?: (user: IdentitySearchResult) => void }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -86,12 +96,14 @@ function NewCommentBox({ onSubmit }: { onSubmit: (content: string) => Promise<un
 
   return (
     <div className="mt-4">
-      <textarea
+      <MentionTextarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Add a comment..."
+        onChange={setText}
+        placeholder="Add a comment... (@ to mention)"
         rows={3}
         className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+        knownUsers={knownUsers}
+        onMentionInserted={onMentionInserted}
       />
       <div className="flex justify-end mt-2">
         <button
@@ -106,4 +118,4 @@ function NewCommentBox({ onSubmit }: { onSubmit: (content: string) => Promise<un
   );
 }
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';

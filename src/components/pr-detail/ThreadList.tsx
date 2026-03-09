@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
-import { MarkdownContent } from '../common';
+import { MarkdownContent, MentionTextarea } from '../common';
+import type { IdentitySearchResult } from '../../api/pullRequests';
 
 interface Props {
   threads: PullRequestThread[];
@@ -13,9 +14,11 @@ interface Props {
   currentUserId?: string;
   isPrOwner?: boolean;
   onNavigateToFile?: (filePath: string, line?: number) => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }
 
-export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, onToggleLike, usersMap, currentUserId, isPrOwner, onNavigateToFile }: Props) {
+export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, onToggleLike, usersMap, currentUserId, isPrOwner, onNavigateToFile, knownUsers, onMentionInserted }: Props) {
   if (threads.length === 0) {
     return <p className="text-gray-400 dark:text-gray-500 text-sm italic">No threads yet.</p>;
   }
@@ -34,6 +37,8 @@ export function ThreadList({ threads, onReply, onSetStatus, onDeleteComment, onT
           currentUserId={currentUserId}
           isPrOwner={isPrOwner}
           onNavigateToFile={onNavigateToFile}
+          knownUsers={knownUsers}
+          onMentionInserted={onMentionInserted}
         />
       ))}
     </div>
@@ -50,6 +55,8 @@ function ThreadItem({
   currentUserId,
   isPrOwner,
   onNavigateToFile,
+  knownUsers,
+  onMentionInserted,
 }: {
   thread: PullRequestThread;
   onReply: Props['onReply'];
@@ -60,6 +67,8 @@ function ThreadItem({
   currentUserId?: string;
   isPrOwner?: boolean;
   onNavigateToFile?: (filePath: string, line?: number) => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -177,12 +186,14 @@ function ThreadItem({
           {/* Reply form */}
           {showReply && (
             <div className="px-4 py-2">
-              <textarea
+              <MentionTextarea
                 value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
+                onChange={setReplyText}
                 rows={2}
-                placeholder="Reply..."
+                placeholder="Reply... (@ to mention)"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                knownUsers={knownUsers}
+                onMentionInserted={onMentionInserted}
               />
               <div className="flex gap-2 mt-1 justify-end">
                 <button onClick={() => setShowReply(false)} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>

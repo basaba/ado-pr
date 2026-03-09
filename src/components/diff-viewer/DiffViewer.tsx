@@ -2,7 +2,8 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
-import { MarkdownContent } from '../common';
+import { MarkdownContent, MentionTextarea } from '../common';
+import type { IdentitySearchResult } from '../../api/pullRequests';
 
 interface Props {
   oldContent: string;
@@ -21,6 +22,7 @@ interface Props {
   onToggleHideThread?: (threadId: number) => void;
   scrollToLine?: number;
   onScrollHandled?: () => void;
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }
 
 export interface DiffLine {
@@ -122,6 +124,7 @@ export function DiffViewer({
   onToggleHideThread,
   scrollToLine,
   onScrollHandled,
+  onMentionInserted,
 }: Props) {
   const [commentLine, setCommentLine] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
@@ -148,6 +151,11 @@ export function DiffViewer({
   const commentBoxWidth = containerWidth > 0 ? `${containerWidth - 10}px` : '100%';
 
   const diffLines = useMemo(() => computeDiffLines(oldContent, newContent), [oldContent, newContent]);
+
+  const knownUsers: IdentitySearchResult[] = useMemo(
+    () => usersMap ? Object.entries(usersMap).map(([id, displayName]) => ({ id, displayName })) : [],
+    [usersMap],
+  );
 
   // Index threads by line number
   const threadsByLine: Record<number, PullRequestThread[]> = {};
@@ -249,6 +257,8 @@ export function DiffViewer({
         isPrOwner={isPrOwner}
         hiddenThreadIds={hiddenThreadIds}
         onToggleHideThread={onToggleHideThread}
+        knownUsers={knownUsers}
+        onMentionInserted={onMentionInserted}
       />
     );
   };
@@ -297,7 +307,7 @@ export function DiffViewer({
             </p>
             {unmatchedThreads.map((thread) => (
               <div key={thread.id} className="mb-3">
-                <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} onToggleLike={onToggleLike} usersMap={usersMap} currentUserId={currentUserId} isPrOwner={isPrOwner} hiddenThreadIds={hiddenThreadIds} onToggleHideThread={onToggleHideThread} />
+                <InlineThread thread={thread} onReply={onReply} onSetStatus={onSetStatus} onDeleteComment={onDeleteComment} onToggleLike={onToggleLike} usersMap={usersMap} currentUserId={currentUserId} isPrOwner={isPrOwner} hiddenThreadIds={hiddenThreadIds} onToggleHideThread={onToggleHideThread} knownUsers={knownUsers} onMentionInserted={onMentionInserted} />
               </div>
             ))}
           </div>
@@ -311,7 +321,7 @@ function DiffLineRow({
   line, lineColors, lineTextColors, gutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
-  usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread,
+  usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -334,6 +344,8 @@ function DiffLineRow({
   isPrOwner?: boolean;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
@@ -358,6 +370,8 @@ function DiffLineRow({
             isPrOwner={isPrOwner}
             hiddenThreadIds={hiddenThreadIds}
             onToggleHideThread={onToggleHideThread}
+            knownUsers={knownUsers}
+            onMentionInserted={onMentionInserted}
           />
         ) : (
           line.newLineNum ? (
@@ -369,6 +383,8 @@ function DiffLineRow({
               sending={sending}
               onSubmitComment={onSubmitComment}
               onCancelComment={onCancelComment}
+              knownUsers={knownUsers}
+              onMentionInserted={onMentionInserted}
             />
           ) : ''
         )}
@@ -389,6 +405,8 @@ function AddCommentPopover({
   sending,
   onSubmitComment,
   onCancelComment,
+  knownUsers,
+  onMentionInserted,
 }: {
   isOpen: boolean;
   onGutterClick: () => void;
@@ -397,11 +415,12 @@ function AddCommentPopover({
   sending: boolean;
   onSubmitComment: () => void;
   onCancelComment: () => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }) {
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const updatePos = useCallback(() => {
     if (indicatorRef.current) {
@@ -413,13 +432,10 @@ function AddCommentPopover({
     }
   }, []);
 
-  // Recalculate position and focus textarea when popover opens
+  // Recalculate position when popover opens
   useEffect(() => {
     if (isOpen) {
       updatePos();
-      requestAnimationFrame(() => {
-        textareaRef.current?.focus({ preventScroll: true });
-      });
     }
   }, [isOpen, updatePos]);
 
@@ -463,13 +479,14 @@ function AddCommentPopover({
           style={{ top: pos.top, left: pos.left, width: 400 }}
         >
           <div className="p-3">
-            <textarea
-              ref={textareaRef}
+            <MentionTextarea
               value={commentText}
-              onChange={(e) => onCommentTextChange(e.target.value)}
+              onChange={onCommentTextChange}
               rows={3}
-              placeholder="Write your comment..."
+              placeholder="Write your comment... (@ to mention)"
               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              knownUsers={knownUsers}
+              onMentionInserted={onMentionInserted}
             />
             <div className="flex gap-2 mt-2 justify-end">
               <button onClick={onCancelComment} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>
@@ -500,6 +517,8 @@ function CommentIndicator({
   isPrOwner,
   hiddenThreadIds,
   onToggleHideThread,
+  knownUsers,
+  onMentionInserted,
 }: {
   lineThreads: PullRequestThread[];
   onReply: (threadId: number, content: string) => Promise<void>;
@@ -511,6 +530,8 @@ function CommentIndicator({
   isPrOwner?: boolean;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -610,6 +631,8 @@ function CommentIndicator({
                 isPrOwner={isPrOwner}
                 hiddenThreadIds={hiddenThreadIds}
                 onToggleHideThread={onToggleHideThread}
+                knownUsers={knownUsers}
+                onMentionInserted={onMentionInserted}
               />
             ))}
           </div>
@@ -621,7 +644,7 @@ function CommentIndicator({
 }
 
 function InlineThread({
-  thread, onReply, onSetStatus, onDeleteComment, onToggleLike, usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread,
+  thread, onReply, onSetStatus, onDeleteComment, onToggleLike, usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
 }: {
   thread: PullRequestThread;
   onReply: (threadId: number, content: string) => Promise<void>;
@@ -633,6 +656,8 @@ function InlineThread({
   isPrOwner?: boolean;
   hiddenThreadIds?: Set<number>;
   onToggleHideThread?: (threadId: number) => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }) {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
@@ -713,8 +738,9 @@ function InlineThread({
           })}
           {showReply && (
             <div className="mt-2">
-              <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} rows={2}
-                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reply..." />
+              <MentionTextarea value={replyText} onChange={setReplyText} rows={2}
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reply... (@ to mention)"
+                knownUsers={knownUsers} onMentionInserted={onMentionInserted} />
               <div className="flex gap-2 mt-1 justify-end">
                 <button onClick={() => setShowReply(false)} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">Cancel</button>
                 <button onClick={handleReply} disabled={sending}

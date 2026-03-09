@@ -5,3 +5,4 @@ export { ErrorBanner } from './ErrorBanner';
 export { MarkdownContent } from './MarkdownContent';
 export { SplitButton } from './SplitButton';
 export { ReviewerVotes } from './ReviewerVotes';
+export { MentionTextarea } from './MentionTextarea';

@@ -4,6 +4,7 @@ import { useSearchParamState, useSearchParamStateSet } from '../../hooks';
 import type { ThreadStatus } from '../../types';
 import { isTextComment } from '../../utils';
 import { ThreadList } from './ThreadList';
+import type { IdentitySearchResult } from '../../api/pullRequests';
 
 interface Props {
   threads: ReturnType<typeof useThreads>;
@@ -11,6 +12,8 @@ interface Props {
   currentUserId?: string;
   isPrOwner?: boolean;
   onNavigateToFile?: (filePath: string, line?: number) => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
 }
 
 const STATUS_FILTERS: { label: string; value: ThreadStatus | 'all' }[] = [
@@ -21,7 +24,7 @@ const STATUS_FILTERS: { label: string; value: ThreadStatus | 'all' }[] = [
   { label: 'Closed', value: 'closed' },
 ];
 
-export function ThreadsTab({ threads, usersMap, currentUserId, isPrOwner, onNavigateToFile }: Props) {
+export function ThreadsTab({ threads, usersMap, currentUserId, isPrOwner, onNavigateToFile, knownUsers, onMentionInserted }: Props) {
   const [filterParam, setFilter] = useSearchParamState('threadStatus', 'all');
   const filter = filterParam as ThreadStatus | 'all';
   const [selectedCommenters, setSelectedCommenters] = useSearchParamStateSet('commenters');
@@ -124,7 +127,10 @@ export function ThreadsTab({ threads, usersMap, currentUserId, isPrOwner, onNavi
         currentUserId={currentUserId}
         isPrOwner={isPrOwner}
         onNavigateToFile={onNavigateToFile}
+        knownUsers={knownUsers}
+        onMentionInserted={onMentionInserted}
       />
     </div>
   );
 }
+

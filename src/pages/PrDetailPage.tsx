@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete } from '../api';
 import { useAuth } from '../context';
@@ -41,10 +41,21 @@ export function PrDetailPage() {
       .finally(() => setLoading(false));
   }, [repoId, prId]);
 
+  const [mentionedUsers, setMentionedUsers] = useState<Record<string, string>>({});
+
   const usersMap = useMemo(
-    () => buildUsersMap(threads.threads, pr?.reviewers, pr?.createdBy),
-    [threads.threads, pr],
+    () => ({ ...buildUsersMap(threads.threads, pr?.reviewers, pr?.createdBy), ...mentionedUsers }),
+    [threads.threads, pr, mentionedUsers],
   );
+
+  const knownUsers = useMemo(
+    () => Object.entries(usersMap).map(([id, displayName]) => ({ id, displayName })),
+    [usersMap],
+  );
+
+  const handleMentionInserted = useCallback((user: { id: string; displayName: string }) => {
+    setMentionedUsers((prev) => ({ ...prev, [user.id.toLowerCase()]: user.displayName }));
+  }, []);
 
   if (loading) return <Spinner className="mt-20" />;
   if (error || !pr) return <ErrorBanner message={error || 'PR not found'} />;
@@ -227,7 +238,7 @@ export function PrDetailPage() {
 
         <div className={activeTab === 'files' || activeTab === 'copilot' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
-            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} />
+            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} knownUsers={knownUsers} onMentionInserted={handleMentionInserted} />
           )}
           {activeTab === 'files' && (
             <FilesTab
@@ -240,6 +251,7 @@ export function PrDetailPage() {
               onNavigateHandled={() => setFileNavTarget(null)}
               currentUserId={profile?.id}
               isPrOwner={profile?.id === pr.createdBy.id}
+              onMentionInserted={handleMentionInserted}
             />
           )}
           {activeTab === 'threads' && (
@@ -248,6 +260,8 @@ export function PrDetailPage() {
               usersMap={usersMap}
               currentUserId={profile?.id}
               isPrOwner={profile?.id === pr.createdBy.id}
+              knownUsers={knownUsers}
+              onMentionInserted={handleMentionInserted}
               onNavigateToFile={(filePath, line) => {
                 setFileNavTarget({ filePath, line });
                 setActiveTab('files');
