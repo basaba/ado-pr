@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ErrorBanner, Spinner } from '../components/common';
+import { Button, ErrorBanner, ErrorBoundary, Spinner } from '../components/common';
 import {
   getRepositoryByName,
   listBranches,
@@ -401,11 +401,13 @@ export function CreatePrPage() {
         {selectedRepo && sourceBranch && targetBranch && (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Files Changed</label>
-            <BranchDiffPreview
-              repoId={selectedRepo.id}
-              sourceBranch={sourceBranch}
-              targetBranch={targetBranch}
-            />
+            <ErrorBoundary>
+              <BranchDiffPreview
+                repoId={selectedRepo.id}
+                sourceBranch={sourceBranch}
+                targetBranch={targetBranch}
+              />
+            </ErrorBoundary>
           </div>
         )}
 

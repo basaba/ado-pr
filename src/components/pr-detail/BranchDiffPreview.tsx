@@ -78,7 +78,9 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
     setSelectedFile(null);
     setFileContent(null);
     getBranchDiff(repoId, sourceBranch, targetBranch)
-      .then(setChanges)
+      .then((data) => {
+        setChanges(data.filter((c) => c.item?.path));
+      })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load diff'))
       .finally(() => setLoading(false));
   }, [repoId, sourceBranch, targetBranch]);
@@ -115,12 +117,6 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
     });
   }, []);
 
-  if (loading) return <Spinner className="py-6" />;
-  if (error) return <p className="text-red-600 dark:text-red-400 text-sm py-4">{error}</p>;
-  if (changes.length === 0) {
-    return <p className="text-gray-400 dark:text-gray-500 text-sm italic py-4">No differences between branches.</p>;
-  }
-
   const selectedChange = changes.find((c) => c.item.path === selectedFile);
 
   const diffLines = useMemo(
@@ -129,6 +125,12 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
   );
 
   const emptyThreadLineSet = useMemo(() => new Set<number>(), []);
+
+  if (loading) return <Spinner className="py-6" />;
+  if (error) return <p className="text-red-600 dark:text-red-400 text-sm py-4">{error}</p>;
+  if (changes.length === 0) {
+    return <p className="text-gray-400 dark:text-gray-500 text-sm italic py-4">No differences between branches.</p>;
+  }
 
   return (
     <div className="flex gap-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
