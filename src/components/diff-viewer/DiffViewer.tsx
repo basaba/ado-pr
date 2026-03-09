@@ -129,6 +129,7 @@ export function DiffViewer({
   const [commentLine, setCommentLine] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
+  const [autoExpandLine, setAutoExpandLine] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [containerWidth, setContainerWidth] = useState(0);
@@ -195,11 +196,13 @@ export function DiffViewer({
 
   const handleSubmitComment = async () => {
     if (!commentText.trim() || commentLine == null) return;
+    const postedLine = commentLine;
     setSending(true);
     try {
       await onAddComment(commentText, commentLine);
       setCommentText('');
       setCommentLine(null);
+      setAutoExpandLine(postedLine);
     } finally {
       setSending(false);
     }
@@ -259,6 +262,8 @@ export function DiffViewer({
         onToggleHideThread={onToggleHideThread}
         knownUsers={knownUsers}
         onMentionInserted={onMentionInserted}
+        autoExpand={autoExpandLine != null && autoExpandLine === newLineNum}
+        onAutoExpandHandled={() => setAutoExpandLine(null)}
       />
     );
   };
@@ -322,6 +327,7 @@ function DiffLineRow({
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
   usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
+  autoExpand, onAutoExpandHandled,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -346,6 +352,8 @@ function DiffLineRow({
   onToggleHideThread?: (threadId: number) => void;
   knownUsers?: IdentitySearchResult[];
   onMentionInserted?: (user: IdentitySearchResult) => void;
+  autoExpand?: boolean;
+  onAutoExpandHandled?: () => void;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
@@ -372,6 +380,8 @@ function DiffLineRow({
             onToggleHideThread={onToggleHideThread}
             knownUsers={knownUsers}
             onMentionInserted={onMentionInserted}
+            autoExpand={autoExpand}
+            onAutoExpandHandled={onAutoExpandHandled}
           />
         ) : (
           line.newLineNum ? (
@@ -519,6 +529,8 @@ function CommentIndicator({
   onToggleHideThread,
   knownUsers,
   onMentionInserted,
+  autoExpand,
+  onAutoExpandHandled,
 }: {
   lineThreads: PullRequestThread[];
   onReply: (threadId: number, content: string) => Promise<void>;
@@ -532,6 +544,8 @@ function CommentIndicator({
   onToggleHideThread?: (threadId: number) => void;
   knownUsers?: IdentitySearchResult[];
   onMentionInserted?: (user: IdentitySearchResult) => void;
+  autoExpand?: boolean;
+  onAutoExpandHandled?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -557,6 +571,15 @@ function CommentIndicator({
       setIsOpen(true);
     }
   }, [isOpen, updatePos]);
+
+  // Auto-expand after a comment was just posted on this line
+  useEffect(() => {
+    if (autoExpand) {
+      updatePos();
+      setIsOpen(true);
+      onAutoExpandHandled?.();
+    }
+  }, [autoExpand, updatePos, onAutoExpandHandled]);
 
   // Close on outside click
   useEffect(() => {

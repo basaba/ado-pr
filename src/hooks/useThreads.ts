@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { PullRequestThread } from '../types';
 import { listThreads, createThread, replyToThread, updateThreadStatus, deleteComment, likeComment, unlikeComment } from '../api';
 import type { ThreadStatus } from '../types';
+import { isTextComment } from '../utils';
 
 export function useThreads(repoId: string, prId: number) {
   const [threads, setThreads] = useState<PullRequestThread[]>([]);
@@ -61,11 +62,13 @@ export function useThreads(repoId: string, prId: number) {
     async (threadId: number, commentId: number) => {
       await deleteComment(repoId, prId, threadId, commentId);
       setThreads((prev) =>
-        prev.map((t) =>
-          t.id === threadId
-            ? { ...t, comments: t.comments.filter((c) => c.id !== commentId) }
-            : t,
-        ),
+        prev
+          .map((t) =>
+            t.id === threadId
+              ? { ...t, comments: t.comments.filter((c) => c.id !== commentId) }
+              : t,
+          )
+          .filter((t) => t.comments.some((c) => isTextComment(c.commentType))),
       );
     },
     [repoId, prId],
