@@ -4,7 +4,7 @@ import { getPullRequest, votePullRequest, completePullRequest, abandonPullReques
 import { useAuth } from '../context';
 import { useThreads, useDiff, useSearchParamState } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
-import { Spinner, ErrorBanner, Badge, SplitButton } from '../components/common';
+import { Spinner, ErrorBanner, Badge, SplitButton, ConfirmDialog, useToast } from '../components/common';
 import { VOTE_LABELS, VOTE_COLORS } from '../types';
 import { formatDate, branchName, buildUsersMap } from '../utils';
 import { OverviewTab } from '../components/pr-detail/OverviewTab';
@@ -57,6 +57,13 @@ export function PrDetailPage() {
     setMentionedUsers((prev) => ({ ...prev, [user.id.toLowerCase()]: user.displayName }));
   }, []);
 
+  const { showToast } = useToast();
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; confirmLabel: string;
+    variant: 'primary' | 'danger'; onConfirm: () => void;
+  } | null>(null);
+  const closeConfirm = useCallback(() => setConfirmDialog(null), []);
+
   if (loading) return <Spinner className="mt-20" />;
   if (error || !pr) return <ErrorBanner message={error || 'PR not found'} />;
 
@@ -82,7 +89,7 @@ export function PrDetailPage() {
           : prev,
       );
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Vote failed');
+      showToast(err instanceof Error ? err.message : 'Vote failed');
     } finally {
       setVoting(false);
     }
@@ -90,32 +97,48 @@ export function PrDetailPage() {
 
   const handleComplete = async () => {
     if (!pr.lastMergeSourceCommit?.commitId) {
-      alert('Cannot complete: no merge source commit found.');
+      showToast('Cannot complete: no merge source commit found.');
       return;
     }
-    if (!confirm('Complete this pull request?')) return;
-    setActionLoading(true);
-    try {
-      const updated = await completePullRequest(repoId!, pr.pullRequestId, pr.lastMergeSourceCommit.commitId);
-      setPr(updated);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Complete failed');
-    } finally {
-      setActionLoading(false);
-    }
+    setConfirmDialog({
+      title: 'Complete Pull Request',
+      message: 'Are you sure you want to complete this pull request?',
+      confirmLabel: 'Complete',
+      variant: 'primary',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setActionLoading(true);
+        try {
+          const updated = await completePullRequest(repoId!, pr.pullRequestId, pr.lastMergeSourceCommit!.commitId);
+          setPr(updated);
+        } catch (err) {
+          showToast(err instanceof Error ? err.message : 'Complete failed');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const handleAbandon = async () => {
-    if (!confirm('Abandon this pull request?')) return;
-    setActionLoading(true);
-    try {
-      const updated = await abandonPullRequest(repoId!, pr.pullRequestId);
-      setPr(updated);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Abandon failed');
-    } finally {
-      setActionLoading(false);
-    }
+    setConfirmDialog({
+      title: 'Abandon Pull Request',
+      message: 'Are you sure you want to abandon this pull request?',
+      confirmLabel: 'Abandon',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setActionLoading(true);
+        try {
+          const updated = await abandonPullRequest(repoId!, pr.pullRequestId);
+          setPr(updated);
+        } catch (err) {
+          showToast(err instanceof Error ? err.message : 'Abandon failed');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const handleToggleAutoComplete = async () => {
@@ -127,7 +150,7 @@ export function PrDetailPage() {
         : await setAutoComplete(repoId!, pr.pullRequestId, profile.id);
       setPr(updated);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Autocomplete toggle failed');
+      showToast(err instanceof Error ? err.message : 'Autocomplete toggle failed');
     } finally {
       setActionLoading(false);
     }
@@ -276,6 +299,15 @@ export function PrDetailPage() {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={confirmDialog?.onConfirm ?? closeConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 }

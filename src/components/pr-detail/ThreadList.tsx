@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
-import { MarkdownContent, MentionTextarea } from '../common';
+import { MarkdownContent, MentionTextarea, ConfirmDialog } from '../common';
 import type { IdentitySearchResult } from '../../api/pullRequests';
 
 interface Props {
@@ -74,6 +74,7 @@ function ThreadItem({
   const [showReply, setShowReply] = useState(false);
   const [sending, setSending] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const textComments = thread.comments.filter((c) => isTextComment(c.commentType));
 
@@ -228,7 +229,7 @@ function ThreadItem({
               {onDeleteComment && textComments.length > 0 && currentUserId && textComments[textComments.length - 1].author.id === currentUserId && (
                 <>
                   <span className="text-gray-300">|</span>
-                  <button onClick={() => { if (confirm('Delete this comment?')) onDeleteComment(thread.id, textComments[textComments.length - 1].id); }}
+                  <button onClick={() => setConfirmDelete(true)}
                     className="text-red-400 dark:text-red-500 hover:text-red-600 hover:underline">Delete</button>
                 </>
               )}
@@ -239,6 +240,18 @@ function ThreadItem({
           </div>
         </>
       )}
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete Comment"
+        message="Are you sure you want to delete this comment?"
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          setConfirmDelete(false);
+          onDeleteComment?.(thread.id, textComments[textComments.length - 1].id);
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

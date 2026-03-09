@@ -234,12 +234,6 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
     });
   }, []);
 
-  if (diff.loading) return <Spinner className="py-10" />;
-  if (diff.error) return <p className="text-red-600 dark:text-red-400 text-sm">{diff.error}</p>;
-  if (diff.changes.length === 0) {
-    return <p className="text-gray-400 dark:text-gray-500 text-sm italic">No file changes found.</p>;
-  }
-
   const selectedChange = diff.changes.find((c) => changePath(c) === selectedFile);
   const fileThreads = selectedFile ? threadsByFile[selectedFile] || [] : [];
 
@@ -256,6 +250,12 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
     });
     return set;
   }, [fileThreads]);
+
+  if (diff.loading) return <Spinner className="py-10" />;
+  if (diff.error) return <p className="text-red-600 dark:text-red-400 text-sm">{diff.error}</p>;
+  if (diff.changes.length === 0) {
+    return <p className="text-gray-400 dark:text-gray-500 text-sm italic">No file changes found.</p>;
+  }
 
   return (
     <div className="flex gap-0">

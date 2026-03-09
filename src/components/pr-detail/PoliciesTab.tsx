@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getPolicyEvaluations, requeuePolicyEvaluation } from '../../api';
 import { adoClient } from '../../api';
 import type { PolicyEvaluation } from '../../types';
-import { Spinner, ErrorBanner } from '../common';
+import { Spinner, ErrorBanner, useToast } from '../common';
 
 const STATUS_ICON: Record<string, string> = {
   approved: '✅',
@@ -40,6 +40,7 @@ export function PoliciesTab({ prId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [requeueing, setRequeueing] = useState<Record<string, boolean>>({});
+  const { showToast } = useToast();
 
   const sortEvals = (evals: PolicyEvaluation[]) => {
     const order: Record<string, number> = { rejected: 0, running: 1, queued: 2, broken: 3, approved: 4, notApplicable: 5 };
@@ -68,7 +69,7 @@ export function PoliciesTab({ prId }: Props) {
         sortEvals(prev.map((ev) => (ev.evaluationId === evaluationId ? updated : ev))),
       );
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Requeue failed');
+      showToast(err instanceof Error ? err.message : 'Requeue failed');
     } finally {
       setRequeueing((prev) => ({ ...prev, [evaluationId]: false }));
     }

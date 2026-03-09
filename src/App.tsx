@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, ThemeProvider } from './context';
 import { AppShell } from './components/layout';
 import { LoginPage, PrListPage, PrDetailPage, AuthorListPage, CreatePrPage } from './pages';
-import { Spinner, ErrorBoundary } from './components/common';
+import { Spinner, ErrorBoundary, ToastProvider } from './components/common';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { config, loading } = useAuth();
@@ -23,6 +23,7 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
+        <ToastProvider>
         <ErrorBoundary>
         <Routes>
           <Route element={<AppShell />}>
@@ -62,6 +63,7 @@ export default function App() {
           </Route>
         </Routes>
         </ErrorBoundary>
+        </ToastProvider>
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
