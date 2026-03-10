@@ -210,6 +210,11 @@ export function DiffViewer({
   const [containerWidth, setContainerWidth] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Reset per-section expansions when view mode changes (hunk indices differ between unified and split)
+  useEffect(() => {
+    setExpandedSections(new Set());
+  }, [viewMode]);
+
   const updateWidth = useCallback(() => {
     if (scrollContainerRef.current) {
       setContainerWidth(scrollContainerRef.current.clientWidth);
@@ -411,8 +416,14 @@ export function DiffViewer({
           }
           return (
             <tr key={`sep-${hunkIdx}`} className="select-none cursor-pointer group" onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}>
-              <td colSpan={Math.ceil(colSpan / 2)} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
-              <td colSpan={colSpan - Math.ceil(colSpan / 2)} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900" />
+              {colSpan <= 4 ? (
+                <>
+                  <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
+                  <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900" />
+                </>
+              ) : (
+                <td colSpan={colSpan} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1">↕</td>
+              )}
             </tr>
           );
         });
