@@ -1,8 +1,11 @@
 import type { Plugin } from 'vite';
 import type { ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
-import { chmodSync } from 'node:fs';
+import { chmodSync, writeFileSync, unlinkSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { getAzAccessToken } from './az-token';
 
 // node-pty's prebuilt spawn-helper may lack +x after npm install on macOS.
 try {
@@ -63,6 +66,14 @@ export function copilotPlugin(): Plugin {
       wss.on('connection', (ws: WebSocket) => {
         let ptyProcess: ReturnType<Awaited<ReturnType<typeof loadPty>>['spawn']> | null = null;
         let initialized = false;
+        let mcpConfigPath: string | null = null;
+
+        const cleanupMcpConfig = () => {
+          if (mcpConfigPath) {
+            try { unlinkSync(mcpConfigPath); } catch { /* ignore */ }
+            mcpConfigPath = null;
+          }
+        };
 
         ws.on('message', async (raw) => {
           const msg = raw.toString();
@@ -71,7 +82,9 @@ export function copilotPlugin(): Plugin {
           if (!initialized) {
             try {
               const config = JSON.parse(msg) as {
-                prContext?: string;
+                prPrompt?: string;
+                adoOrgUrl?: string;
+                adoProject?: string;
                 repoPath?: string;
                 cols?: number;
                 rows?: number;
@@ -86,17 +99,36 @@ export function copilotPlugin(): Plugin {
                 copilotArgs.push('--add-dir', config.repoPath);
               }
 
-              // Inject PR context via -i so Copilot absorbs it as the first
-              // interactive prompt without modifying any repo files.
-              if (config.prContext) {
-                const preamble = [
-                  'Below is context about the current Azure DevOps pull request.',
-                  'Read and remember it. Do NOT summarize, review, or take any action.',
-                  'Just respond with "Ready." and wait for my next message.',
-                  '',
-                  config.prContext,
-                ].join('\n');
-                copilotArgs.push('-i', preamble);
+              // Set up Azure DevOps MCP server if ADO config is provided
+              if (config.adoOrgUrl) {
+                try {
+                  const azToken = await getAzAccessToken();
+                  const mcpConfig = {
+                    mcpServers: {
+                      'azure-devops': {
+                        command: 'npx',
+                        args: ['azure-devops-mcp'],
+                        env: {
+                          AZURE_DEVOPS_URL: config.adoOrgUrl,
+                          AZURE_DEVOPS_PAT: azToken,
+                          ...(config.adoProject ? { AZURE_DEVOPS_PROJECT: config.adoProject } : {}),
+                        },
+                      },
+                    },
+                  };
+                  const tmpDir = mkdtempSync(join(tmpdir(), 'copilot-mcp-'));
+                  mcpConfigPath = join(tmpDir, 'mcp-config.json');
+                  writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig));
+                  copilotArgs.push('--additional-mcp-config', `@${mcpConfigPath}`);
+                } catch (err) {
+                  const errMsg = err instanceof Error ? err.message : String(err);
+                  ws.send(JSON.stringify({ type: 'error', message: `MCP config failed: ${errMsg}` }));
+                }
+              }
+
+              // Inject a minimal PR prompt via -i
+              if (config.prPrompt) {
+                copilotArgs.push('-i', config.prPrompt);
               }
 
               const { file, prefixArgs } = copilotBin();
@@ -153,6 +185,7 @@ export function copilotPlugin(): Plugin {
             try { ptyProcess.kill(); } catch { /* ignore */ }
             ptyProcess = null;
           }
+          cleanupMcpConfig();
         });
       });
     },

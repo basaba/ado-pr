@@ -309,7 +309,7 @@ export function PrDetailPage() {
             <PoliciesTab prId={Number(prId)} />
           )}
           {activeTab === 'copilot' && (
-            <CopilotTab pr={pr} threads={threads.threads} changes={diff.changes} fetchFilePair={diff.fetchFilePair} />
+            <CopilotTab pr={pr} />
           )}
         </div>
       </div>

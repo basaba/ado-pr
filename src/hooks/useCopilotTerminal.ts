@@ -4,12 +4,14 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 
 export interface UseCopilotTerminalOptions {
-  /** PR context string to send as the first prompt */
-  prContext: string;
+  /** Short initial prompt identifying the PR */
+  prPrompt: string;
+  /** ADO organization URL (e.g. https://dev.azure.com/myorg) */
+  adoOrgUrl: string;
+  /** ADO project name */
+  adoProject: string;
   /** Local repo path for copilot --add-dir */
   repoPath?: string;
-  /** Whether the component is ready to connect */
-  ready?: boolean;
 }
 
 export interface UseCopilotTerminalReturn {
@@ -26,9 +28,10 @@ export interface UseCopilotTerminalReturn {
 }
 
 export function useCopilotTerminal({
-  prContext,
+  prPrompt,
+  adoOrgUrl,
+  adoProject,
   repoPath,
-  ready = true,
 }: UseCopilotTerminalOptions): UseCopilotTerminalReturn {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -47,7 +50,7 @@ export function useCopilotTerminal({
   }, []);
 
   useEffect(() => {
-    if (!ready || !terminalRef.current) return;
+    if (!terminalRef.current) return;
 
     const container = terminalRef.current;
 
@@ -105,7 +108,9 @@ export function useCopilotTerminal({
 
       // Send init config
       ws.send(JSON.stringify({
-        prContext,
+        prPrompt,
+        adoOrgUrl,
+        adoProject,
         repoPath,
         cols: term.cols,
         rows: term.rows,
@@ -174,7 +179,7 @@ export function useCopilotTerminal({
       fitRef.current = null;
       setConnected(false);
     };
-  }, [ready, prContext, repoPath, connectId]);
+  }, [prPrompt, adoOrgUrl, adoProject, repoPath, connectId]);
 
   return { terminalRef, connected, error, exited, reconnect };
 }
