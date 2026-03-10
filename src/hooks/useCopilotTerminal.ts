@@ -6,8 +6,10 @@ import '@xterm/xterm/css/xterm.css';
 export interface UseCopilotTerminalOptions {
   /** Short initial prompt identifying the PR */
   prPrompt: string;
-  /** ADO organization URL (e.g. https://dev.azure.com/myorg) */
-  adoOrgUrl: string;
+  /** ADO server URL (e.g. https://dev.azure.com) */
+  adoServerUrl: string;
+  /** ADO organization name */
+  adoOrg: string;
   /** ADO project name */
   adoProject: string;
   /** Local repo path for copilot --add-dir */
@@ -29,7 +31,8 @@ export interface UseCopilotTerminalReturn {
 
 export function useCopilotTerminal({
   prPrompt,
-  adoOrgUrl,
+  adoServerUrl,
+  adoOrg,
   adoProject,
   repoPath,
 }: UseCopilotTerminalOptions): UseCopilotTerminalReturn {
@@ -109,7 +112,8 @@ export function useCopilotTerminal({
       // Send init config
       ws.send(JSON.stringify({
         prPrompt,
-        adoOrgUrl,
+        adoServerUrl,
+        adoOrg,
         adoProject,
         repoPath,
         cols: term.cols,
@@ -179,7 +183,7 @@ export function useCopilotTerminal({
       fitRef.current = null;
       setConnected(false);
     };
-  }, [prPrompt, adoOrgUrl, adoProject, repoPath, connectId]);
+  }, [prPrompt, adoServerUrl, adoOrg, adoProject, repoPath, connectId]);
 
   return { terminalRef, connected, error, exited, reconnect };
 }

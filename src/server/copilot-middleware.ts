@@ -83,7 +83,8 @@ export function copilotPlugin(): Plugin {
             try {
               const config = JSON.parse(msg) as {
                 prPrompt?: string;
-                adoOrgUrl?: string;
+                adoServerUrl?: string;
+                adoOrg?: string;
                 adoProject?: string;
                 repoPath?: string;
                 cols?: number;
@@ -100,7 +101,7 @@ export function copilotPlugin(): Plugin {
               }
 
               // Set up Azure DevOps MCP server if ADO config is provided
-              if (config.adoOrgUrl) {
+              if (config.adoServerUrl && config.adoOrg) {
                 try {
                   const azToken = await getAzAccessToken();
                   const mcpConfig = {
@@ -109,8 +110,9 @@ export function copilotPlugin(): Plugin {
                         command: 'npx',
                         args: ['azure-devops-mcp'],
                         env: {
-                          AZURE_DEVOPS_URL: config.adoOrgUrl,
+                          AZURE_DEVOPS_URL: config.adoServerUrl,
                           AZURE_DEVOPS_PAT: azToken,
+                          AZURE_DEVOPS_COLLECTION: config.adoOrg,
                           ...(config.adoProject ? { AZURE_DEVOPS_PROJECT: config.adoProject } : {}),
                         },
                       },

@@ -13,7 +13,8 @@ function branchName(ref: string) {
 export function CopilotTab({ pr }: CopilotTabProps) {
   const { config } = useAuth();
   const repoPath = config?.repoPath;
-  const adoOrgUrl = config ? `${config.serverUrl}/${config.organization}` : '';
+  const adoServerUrl = config?.serverUrl ?? '';
+  const adoOrg = config?.organization ?? '';
   const adoProject = config?.project ?? '';
 
   const prPrompt = [
@@ -31,7 +32,8 @@ export function CopilotTab({ pr }: CopilotTabProps) {
 
   const { terminalRef, connected, error, exited, reconnect } = useCopilotTerminal({
     prPrompt,
-    adoOrgUrl,
+    adoServerUrl,
+    adoOrg,
     adoProject,
     repoPath,
   });
