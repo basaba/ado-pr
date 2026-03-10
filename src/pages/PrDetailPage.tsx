@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete } from '../api';
 import { useAuth } from '../context';
-import { useThreads, useDiff, useSearchParamState } from '../hooks';
+import { useThreads, useDiff, useCommits, useSearchParamState } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
 import { Spinner, ErrorBanner, Badge, SplitButton, ConfirmDialog, useToast } from '../components/common';
 import { VOTE_LABELS, VOTE_COLORS } from '../types';
@@ -14,8 +14,9 @@ import type { FileNavigateTarget } from '../components/pr-detail/FilesTab';
 import { ThreadsTab } from '../components/pr-detail/ThreadsTab';
 import { PoliciesTab } from '../components/pr-detail/PoliciesTab';
 import { CopilotTab } from '../components/pr-detail/CopilotTab';
+import { CommitsTab } from '../components/pr-detail/CommitsTab';
 
-type Tab = 'overview' | 'files' | 'threads' | 'policies' | 'copilot';
+type Tab = 'overview' | 'files' | 'threads' | 'commits' | 'policies' | 'copilot';
 
 export function PrDetailPage() {
   const { repoId, prId } = useParams<{ repoId: string; prId: string }>();
@@ -32,6 +33,7 @@ export function PrDetailPage() {
 
   const threads = useThreads(repoId!, Number(prId));
   const diff = useDiff(repoId!, Number(prId));
+  const commits = useCommits(repoId!, Number(prId));
 
   useEffect(() => {
     if (!repoId || !prId) return;
@@ -182,6 +184,7 @@ export function PrDetailPage() {
       label: 'Threads',
       count: threads.threads.filter((t) => t.status === 'active').length,
     },
+    { id: 'commits', label: 'Commits', count: commits.commits.length },
     { id: 'policies', label: 'Policies' },
     { id: 'copilot', label: 'Copilot' },
   ];
@@ -273,7 +276,7 @@ export function PrDetailPage() {
           ))}
         </div>
 
-        <div className={activeTab === 'files' || activeTab === 'copilot' ? 'p-0' : 'p-6'}>
+        <div className={activeTab === 'files' || activeTab === 'copilot' || activeTab === 'commits' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
             <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} knownUsers={knownUsers} onMentionInserted={handleMentionInserted} />
           )}
@@ -307,6 +310,15 @@ export function PrDetailPage() {
           )}
           {activeTab === 'policies' && (
             <PoliciesTab prId={Number(prId)} />
+          )}
+          {activeTab === 'commits' && (
+            <CommitsTab
+              commits={commits.commits}
+              loading={commits.loading}
+              error={commits.error}
+              repoId={repoId!}
+              repoName={pr.repository.name}
+            />
           )}
           {activeTab === 'copilot' && (
             <CopilotTab pr={pr} />

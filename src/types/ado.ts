@@ -112,6 +112,34 @@ export interface IterationChange {
   originalPath?: string;
 }
 
+export interface GitCommitRef {
+  commitId: string;
+  comment: string;
+  author: GitUserDate;
+  committer: GitUserDate;
+  url: string;
+  changeCounts?: { Add: number; Edit: number; Delete: number };
+  parents?: string[];
+}
+
+export interface GitUserDate {
+  name: string;
+  email: string;
+  date: string;
+}
+
+export interface CommitChange {
+  item: {
+    objectId: string;
+    originalObjectId?: string;
+    path: string;
+    gitObjectType?: string;
+    isFolder?: boolean;
+  };
+  changeType: number | string;
+  originalPath?: string;
+}
+
 export interface FileDiffBlock {
   changeType: number; // 0=none, 1=add, 2=delete
   mLine: number;

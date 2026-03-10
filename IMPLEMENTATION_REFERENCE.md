@@ -1,0 +1,584 @@
+# IMPLEMENTATION REFERENCE - Quick Copy/Paste Code
+
+This file contains the exact code to add for commit diff support.
+
+---
+
+## 1. ADD TO src/api/commits.ts
+
+```typescript
+import { adoClient } from './client';
+import type { AdoListResponse, GitCommitRef, IterationChange } from '../types';
+
+export async function listPrCommits(
+  repoId: string,
+  prId: number,
+): Promise<GitCommitRef[]> {
+  const data = await adoClient.get<AdoListResponse<GitCommitRef>>(
+    `/git/repositories/${repoId}/pullrequests/${prId}/commits`,
+  );
+  return data.value;
+}
+
+// NEW FUNCTION
+export async function getCommitChanges(
+  repoId: string,
+  commitId: string,
+): Promise<IterationChange[]> {
+  const data = await adoClient.get<{ changeEntries: IterationChange[] }>(
+    `/git/repositories/${repoId}/commits/${commitId}/changes`,
+  );
+  return data.changeEntries;
+}
+```
+
+---
+
+## 2. CREATE src/hooks/useCommitDiff.ts
+
+```typescript
+import { useState, useEffect, useCallback } from 'react';
+import { getCommitChanges, getFileContent } from '../api';
+import type { IterationChange } from '../types';
+
+export function useCommitDiff(repoId: string, commitId: string, parentCommitId?: string) {
+  const [changes, setChanges] = useState<IterationChange[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!repoId || !commitId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const ch = await getCommitChanges(repoId, commitId);
+      setChanges(ch);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load commit changes');
+    } finally {
+      setLoading(false);
+    }
+  }, [repoId, commitId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const fetchFilePair = useCallback(
+    async (path: string, changeType?: string) => {
+      if (!parentCommitId) {
+        return { oldContent: '', newContent: '' };
+      }
+
+      const oldContent = changeType === 'add'
+        ? ''
+        : await getFileContent(repoId, path, parentCommitId);
+
+      const newContent = changeType === 'delete'
+        ? ''
+        : await getFileContent(repoId, path, commitId);
+
+      return { oldContent, newContent };
+    },
+    [repoId, commitId, parentCommitId],
+  );
+
+  return { changes, loading, error, refresh, fetchFilePair };
+}
+```
+
+---
+
+## 3. UPDATE src/hooks/index.ts
+
+Add this export:
+```typescript
+export { useCommitDiff } from './useCommitDiff';
+```
+
+---
+
+## 4. CREATE src/components/pr-detail/CommitDiffView.tsx
+
+```typescript
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import type { useCommitDiff } from '../../hooks';
+import { useSearchParamStateNullable } from '../../hooks';
+import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
+import { Badge, Spinner } from '../common';
+import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
+import type { IterationChange } from '../../types';
+
+function changePath(change: IterationChange): string | undefined {
+  return change.item?.path ?? change.originalPath;
+}
+
+interface TreeNode {
+  name: string;
+  path: string;
+  children: TreeNode[];
+  change?: IterationChange;
+}
+
+function buildFileTree(changes: IterationChange[]): TreeNode {
+  const root: TreeNode = { name: '', path: '', children: [] };
+
+  for (const change of changes) {
+    const filePath = changePath(change);
+    if (!filePath) continue;
+    const parts = filePath.replace(/^\//, '').split('/');
+    let node = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const partPath = '/' + parts.slice(0, i + 1).join('/');
+      let child = node.children.find((c) => c.name === part);
+      if (!child) {
+        child = { name: part, path: partPath, children: [] };
+        node.children.push(child);
+      }
+      node = child;
+    }
+    node.change = change;
+  }
+
+  function collapse(node: TreeNode): TreeNode {
+    node.children = node.children.map(collapse);
+    if (node.children.length === 1 && !node.change && node.name) {
+      const child = node.children[0];
+      if (!child.change) {
+        return { ...child, name: `${node.name}/${child.name}` };
+      }
+    }
+    node.children.sort((a, b) => {
+      const aDir = a.children.length > 0 && !a.change ? 0 : 1;
+      const bDir = b.children.length > 0 && !b.change ? 0 : 1;
+      if (aDir !== bDir) return aDir - bDir;
+      return a.name.localeCompare(b.name);
+    });
+    return node;
+  }
+
+  return collapse(root);
+}
+
+interface Props {
+  repoId: string;
+  commitId: string;
+  parentCommitId?: string;
+}
+
+export function CommitDiffView({ repoId, commitId, parentCommitId }: Props) {
+  const diff = useCommitDiff(repoId, commitId, parentCommitId);
+  const [selectedFile, setSelectedFile] = useSearchParamStateNullable('file');
+  const [fileContent, setFileContent] = useState<{ oldContent: string; newContent: string } | null>(null);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const dragging = useRef(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const startDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const newWidth = Math.min(Math.max(startWidth + ev.clientX - startX, 120), 600);
+      setSidebarWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      dragging.current = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [sidebarWidth]);
+
+  const fileTree = useMemo(() => buildFileTree(diff.changes), [diff.changes]);
+
+  const handleFileClick = useCallback(
+    async (path: string) => {
+      if (selectedFile === path) return;
+      setSelectedFile(path);
+      setFileContent(null);
+      setLoadingFile(true);
+      const changeType = diff.changes.find((c) => changePath(c) === path)?.changeType;
+      try {
+        const content = await diff.fetchFilePair(path, changeType);
+        setFileContent(content);
+      } catch {
+        setFileContent({ oldContent: '', newContent: '' });
+      } finally {
+        setLoadingFile(false);
+      }
+    },
+    [selectedFile, diff],
+  );
+
+  useEffect(() => {
+    if (selectedFile || !fileTree.children.length) return;
+    function firstLeaf(node: TreeNode): string | null {
+      for (const child of node.children) {
+        if (child.change) return child.path;
+        const found = firstLeaf(child);
+        if (found) return found;
+      }
+      return null;
+    }
+    const first = firstLeaf(fileTree);
+    if (first) handleFileClick(first);
+  }, [fileTree, selectedFile, handleFileClick]);
+
+  const toggleDir = useCallback((path: string) => {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const selectedChange = diff.changes.find((c) => changePath(c) === selectedFile);
+  const diffLines = useMemo(
+    () => fileContent ? computeDiffLines(fileContent.oldContent, fileContent.newContent) : [],
+    [fileContent],
+  );
+
+  if (diff.loading) return <Spinner className="py-4" />;
+  if (diff.error) return <p className="text-red-600 dark:text-red-400 text-sm">{diff.error}</p>;
+  if (diff.changes.length === 0) {
+    return <p className="text-gray-400 dark:text-gray-500 text-sm italic">No changes in this commit.</p>;
+  }
+
+  return (
+    <div className="flex gap-0 bg-white dark:bg-gray-800 rounded-lg -mx-4">
+      {/* File tree sidebar */}
+      <div className="shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" style={{ width: sidebarWidth }}>
+        <div className="sticky top-0 overflow-y-auto" style={{ maxHeight: '70vh' }}>
+          <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-gray-50 dark:bg-gray-900 z-10">
+            {diff.changes.length} file{diff.changes.length !== 1 ? 's' : ''}
+          </div>
+          <div className="py-1">
+            {fileTree.children.map((node) => (
+              <FileTreeNode
+                key={node.path}
+                node={node}
+                depth={0}
+                selectedFile={selectedFile}
+                collapsedDirs={collapsedDirs}
+                onFileClick={handleFileClick}
+                onToggleDir={toggleDir}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Drag handle */}
+      <div
+        onMouseDown={startDrag}
+        className="w-1 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-600 active:bg-blue-500 transition-colors shrink-0"
+      />
+
+      {/* Diff viewer */}
+      <div className="flex-1 min-w-0" ref={contentRef}>
+        {selectedFile && selectedChange ? (
+          <div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+              <span className="font-mono text-sm text-gray-800 dark:text-gray-100">{selectedFile}</span>
+              <Badge
+                text={changeTypeLabel(selectedChange.changeType)}
+                color={changeTypeBadgeColor(selectedChange.changeType)}
+              />
+            </div>
+            {loadingFile ? (
+              <Spinner className="py-10" />
+            ) : fileContent ? (
+              <DiffViewer
+                oldContent={fileContent.oldContent}
+                newContent={fileContent.newContent}
+                filePath={selectedFile}
+                threads={[]}
+                onAddComment={async () => {}}
+                onReply={async () => {}}
+                onSetStatus={async () => {}}
+              />
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-32 text-gray-400 dark:text-gray-500 text-sm">
+            Select a file to view changes
+          </div>
+        )}
+      </div>
+
+      {/* Minimap */}
+      {diffLines.length > 0 && (
+        <ScrollbarMinimap sticky diffLines={diffLines} threadLineSet={new Set()} contentRef={contentRef} />
+      )}
+    </div>
+  );
+}
+
+function FileTreeNode({
+  node,
+  depth,
+  selectedFile,
+  collapsedDirs,
+  onFileClick,
+  onToggleDir,
+}: {
+  node: TreeNode;
+  depth: number;
+  selectedFile: string | null;
+  collapsedDirs: Set<string>;
+  onFileClick: (path: string) => void;
+  onToggleDir: (path: string) => void;
+}) {
+  const isFile = !!node.change;
+  const isDir = !isFile && node.children.length > 0;
+  const isCollapsed = collapsedDirs.has(node.path);
+  const isSelected = selectedFile === node.path;
+  const paddingLeft = 12 + depth * 16;
+
+  const changeColor: Record<string, string> = {
+    add: 'text-green-600 dark:text-green-400',
+    edit: 'text-blue-600 dark:text-blue-400',
+    delete: 'text-red-600 dark:text-red-400',
+    rename: 'text-yellow-600 dark:text-yellow-400',
+  };
+
+  if (isFile) {
+    return (
+      <div
+        className={`flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs transition-colors truncate ${
+          isSelected
+            ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-200 font-medium'
+            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+        }`}
+        style={{ paddingLeft }}
+        onClick={() => onFileClick(node.path)}
+        title={node.path}
+      >
+        <span className={`shrink-0 ${changeColor[node.change!.changeType] || 'text-gray-400'}`}>
+          {node.change!.changeType === 'add' ? '+' : node.change!.changeType === 'delete' ? '−' : '●'}
+        </span>
+        <span className={`truncate ${node.change!.changeType === 'delete' ? 'line-through opacity-60' : ''}`}>
+          {node.name}
+        </span>
+      </div>
+    );
+  }
+
+  if (isDir) {
+    return (
+      <>
+        <div
+          className="flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          style={{ paddingLeft }}
+          onClick={() => onToggleDir(node.path)}
+        >
+          <span className="shrink-0 text-gray-400 dark:text-gray-500 w-3 text-center">
+            {isCollapsed ? '▸' : '▾'}
+          </span>
+          <span className="font-medium truncate">{node.name}</span>
+        </div>
+        {!isCollapsed &&
+          node.children.map((child) => (
+            <FileTreeNode
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              selectedFile={selectedFile}
+              collapsedDirs={collapsedDirs}
+              onFileClick={onFileClick}
+              onToggleDir={onToggleDir}
+            />
+          ))}
+      </>
+    );
+  }
+
+  return null;
+}
+```
+
+---
+
+## 5. UPDATE src/components/pr-detail/CommitsTab.tsx
+
+Replace the entire file:
+
+```typescript
+import { useState } from 'react';
+import type { GitCommitRef } from '../../types';
+import { Spinner, ErrorBanner } from '../common';
+import { CommitDiffView } from './CommitDiffView';
+import { adoClient } from '../../api';
+import { formatDate } from '../../utils';
+
+interface Props {
+  commits: GitCommitRef[];
+  loading: boolean;
+  error: string | null;
+  repoName: string;
+  repoId: string;
+}
+
+function shortSha(commitId: string) {
+  return commitId.slice(0, 8);
+}
+
+function commitUrl(repoName: string, commitId: string): string {
+  return `${adoClient.orgUrl}/${encodeURIComponent(adoClient.projectName)}/_git/${encodeURIComponent(repoName)}/commit/${commitId}`;
+}
+
+export function CommitsTab({ commits, loading, error, repoName, repoId }: Props) {
+  const [expandedCommitId, setExpandedCommitId] = useState<string | null>(null);
+
+  if (loading) return <Spinner className="mt-10" />;
+  if (error) return <ErrorBanner message={error} />;
+  if (commits.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        No commits found for this pull request.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        {commits.length} commit{commits.length !== 1 ? 's' : ''}
+      </div>
+
+      <div className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        {commits.map((commit, idx) => (
+          <div key={commit.commitId}>
+            {/* Commit Row */}
+            <div
+              onClick={() => setExpandedCommitId(expandedCommitId === commit.commitId ? null : commit.commitId)}
+              className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-gray-400 dark:text-gray-500 text-xs mt-1 w-3 text-center">
+                {expandedCommitId === commit.commitId ? '▾' : '▸'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {commit.comment.split('\n')[0]}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  <span>{commit.author.name}</span>
+                  <span>{formatDate(commit.author.date)}</span>
+                  {commit.changeCounts && (
+                    <span className="flex gap-2">
+                      {commit.changeCounts.Add > 0 && (
+                        <span className="text-green-600 dark:text-green-400">
+                          +{commit.changeCounts.Add}
+                        </span>
+                      )}
+                      {commit.changeCounts.Edit > 0 && (
+                        <span className="text-yellow-600 dark:text-yellow-400">
+                          ~{commit.changeCounts.Edit}
+                        </span>
+                      )}
+                      {commit.changeCounts.Delete > 0 && (
+                        <span className="text-red-600 dark:text-red-400">
+                          -{commit.changeCounts.Delete}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <a
+                href={commitUrl(repoName, commit.commitId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0 font-mono text-xs text-blue-600 dark:text-blue-400 hover:underline bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded"
+                title={commit.commitId}
+              >
+                {shortSha(commit.commitId)}
+              </a>
+            </div>
+
+            {/* Expanded Diff View */}
+            {expandedCommitId === commit.commitId && (
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
+                <CommitDiffView
+                  repoId={repoId}
+                  commitId={commit.commitId}
+                  parentCommitId={idx < commits.length - 1 ? commits[idx + 1].commitId : undefined}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 6. UPDATE src/pages/PrDetailPage.tsx
+
+Find this section (around line 314):
+```typescript
+{activeTab === 'commits' && (
+  <CommitsTab
+    commits={commits.commits}
+    loading={commits.loading}
+    error={commits.error}
+    repoName={pr.repository.name}
+  />
+)}
+```
+
+Change to:
+```typescript
+{activeTab === 'commits' && (
+  <CommitsTab
+    commits={commits.commits}
+    loading={commits.loading}
+    error={commits.error}
+    repoName={pr.repository.name}
+    repoId={repoId!}
+  />
+)}
+```
+
+---
+
+## Summary of Files to Create/Modify
+
+### New Files (CREATE):
+- ✅ `src/hooks/useCommitDiff.ts`
+- ✅ `src/components/pr-detail/CommitDiffView.tsx`
+
+### Modified Files (REPLACE):
+- ✅ `src/components/pr-detail/CommitsTab.tsx`
+
+### Updated Files (ADD TO):
+- ✅ `src/api/commits.ts` - Add `getCommitChanges` function
+- ✅ `src/hooks/index.ts` - Add export for `useCommitDiff`
+- ✅ `src/pages/PrDetailPage.tsx` - Add `repoId` prop to `CommitsTab`
+
+---
+
+## Testing
+
+1. Run `npm run dev`
+2. Go to any PR with multiple commits
+3. Click the Commits tab
+4. Click a commit to expand
+5. Click a file in the expanded diff
+6. Verify old/new content loads and displays correctly
+7. Test minimap and scroll
+8. Try expanding a different commit (previous should collapse)
+
