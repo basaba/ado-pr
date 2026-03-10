@@ -243,9 +243,7 @@ export function PrDetailPage() {
                 ]}
               />
               {hasAutoComplete && (
-                <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">
-                  Autocomplete is on
-                </span>
+                <Badge text="Autocomplete" color="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" />
               )}
             </>
           )}
