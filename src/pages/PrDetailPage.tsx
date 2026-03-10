@@ -200,8 +200,8 @@ export function PrDetailPage() {
           </div>
         </div>
 
-        {/* Vote button */}
-        <div className="flex gap-2 mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+        {/* Vote & PR actions */}
+        <div className="flex gap-2 mt-4 border-t border-gray-100 dark:border-gray-700 pt-4 items-center flex-wrap">
           <SplitButton
             disabled={voting}
             size="sm"
@@ -213,27 +213,25 @@ export function PrDetailPage() {
               ...(myVote !== 0 ? [{ label: '↺ Reset Vote', onClick: () => handleVote(0), variant: 'ghost' as const }] : []),
             ]}
           />
+          {isMyPr && isActive && (
+            <>
+              <SplitButton
+                disabled={actionLoading}
+                size="sm"
+                options={[
+                  { label: 'Complete', onClick: handleComplete, variant: 'success' },
+                  { label: hasAutoComplete ? 'Cancel Autocomplete' : 'Set Autocomplete', onClick: handleToggleAutoComplete },
+                  { label: 'Abandon', onClick: handleAbandon },
+                ]}
+              />
+              {hasAutoComplete && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">
+                  Autocomplete is on
+                </span>
+              )}
+            </>
+          )}
         </div>
-
-        {/* PR actions for owner */}
-        {isMyPr && isActive && (
-          <div className="flex gap-2 mt-3 border-t border-gray-100 dark:border-gray-700 pt-3 items-center">
-            <SplitButton
-              disabled={actionLoading}
-              size="sm"
-              options={[
-                { label: 'Complete', onClick: handleComplete, variant: 'success' },
-                { label: hasAutoComplete ? 'Cancel Autocomplete' : 'Set Autocomplete', onClick: handleToggleAutoComplete },
-                { label: 'Abandon', onClick: handleAbandon },
-              ]}
-            />
-            {hasAutoComplete && (
-              <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">
-                Autocomplete is on
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Tabs */}
