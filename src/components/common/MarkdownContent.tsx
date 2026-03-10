@@ -9,9 +9,10 @@ interface Props {
 }
 
 export function MarkdownContent({ content, className = '', usersMap }: Props) {
-  const processed = usersMap ? preprocessMentions(content, usersMap) : content;
+  const stripped = content.replace(/<!--[\s\S]*?-->/g, '');
+  const processed = usersMap ? preprocessMentions(stripped, usersMap) : stripped;
   return (
-    <div className={`prose prose-sm dark:prose-invert max-w-none break-words ${className}`}>
+    <div className={`prose prose-sm dark:prose-invert max-w-none break-words prose-code:before:content-none prose-code:after:content-none ${className}`}>
       <Markdown remarkPlugins={[remarkGfm]}>{processed}</Markdown>
     </div>
   );
