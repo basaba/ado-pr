@@ -109,7 +109,7 @@ export function PrDetailPage() {
         setConfirmDialog(null);
         setActionLoading(true);
         try {
-          const updated = await completePullRequest(repoId!, pr.pullRequestId, pr.lastMergeSourceCommit!.commitId);
+          const updated = await completePullRequest(repoId!, pr.pullRequestId, pr.lastMergeSourceCommit!.commitId, pr.completionOptions);
           setPr(updated);
         } catch (err) {
           showToast(err instanceof Error ? err.message : 'Complete failed');
@@ -147,7 +147,7 @@ export function PrDetailPage() {
     try {
       const updated = hasAutoComplete
         ? await cancelAutoComplete(repoId!, pr.pullRequestId)
-        : await setAutoComplete(repoId!, pr.pullRequestId, profile.id);
+        : await setAutoComplete(repoId!, pr.pullRequestId, profile.id, pr.completionOptions);
       setPr(updated);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Autocomplete toggle failed');
