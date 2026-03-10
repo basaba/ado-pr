@@ -31,6 +31,13 @@ const STATUS_COLOR: Record<string, string> = {
   broken: 'text-yellow-600 dark:text-yellow-400',
 };
 
+function getPolicyUrl(ev: PolicyEvaluation): string | null {
+  if (ev.context?.buildId) {
+    return `${adoClient.orgUrl}/${encodeURIComponent(adoClient.projectName)}/_build/results?buildId=${ev.context.buildId}`;
+  }
+  return `${adoClient.orgUrl}/${encodeURIComponent(adoClient.projectName)}/_settings/repositories?_a=policiesMid&policyId=${ev.configuration.id}`;
+}
+
 interface Props {
   prId: number;
 }
@@ -104,13 +111,26 @@ export function PoliciesTab({ prId }: Props) {
             </span>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {ev.configuration.type.displayName}
+                {(() => {
+                  const url = getPolicyUrl(ev);
+                  const name = ev.configuration.type.displayName;
+                  return url ? (
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline text-blue-600 dark:text-blue-400">
+                      {name}
+                    </a>
+                  ) : name;
+                })()}
                 {ev.context?.buildDefinitionName && (
                   <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">
                     — {ev.context.buildDefinitionName}
                   </span>
                 )}
               </div>
+              {typeof ev.configuration.settings?.displayName === 'string' && ev.configuration.settings.displayName && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {ev.configuration.settings.displayName}
+                </div>
+              )}
               <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-2">
                 {ev.configuration.isBlocking && (
                   <span className="text-orange-600 dark:text-orange-400 font-medium">Required</span>
