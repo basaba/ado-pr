@@ -302,6 +302,7 @@ export function PrListPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{pr.title}</span>
                     {pr.isDraft && <Badge text="Draft" color="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300" />}
+                    {pr.autoCompleteSetBy?.id && <Badge text="Autocomplete" color="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" />}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex gap-3">
                     <span>{pr.repository.name}</span>
