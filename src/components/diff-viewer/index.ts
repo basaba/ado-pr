@@ -1,3 +1,3 @@
-export { DiffViewer, computeDiffLines } from './DiffViewer';
-export type { DiffLine } from './DiffViewer';
+export { DiffViewer, computeDiffLines, computeSplitPairs } from './DiffViewer';
+export type { DiffLine, SplitPair } from './DiffViewer';
 export { ScrollbarMinimap } from './ScrollbarMinimap';

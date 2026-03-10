@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { useDiff, useThreads } from '../../hooks';
-import { useSearchParamStateNullable } from '../../hooks';
+import { useSearchParamStateNullable, useSearchParamState } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
@@ -122,6 +122,7 @@ function buildFileTree(
 
 export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId, isPrOwner, onMentionInserted }: Props) {
   const [selectedFile, setSelectedFile] = useSearchParamStateNullable('file');
+  const [diffView, setDiffView] = useSearchParamState('diffView', 'unified');
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
     newContent: string;
@@ -301,6 +302,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
               {fileThreads.length > 0 && (
                 <span className="text-xs text-blue-600 dark:text-blue-400">💬 {fileThreads.length}</span>
               )}
+              <DiffViewToggle value={diffView as 'unified' | 'split'} onChange={setDiffView} />
             </div>
             {loadingFile ? (
               <Spinner className="py-10" />
@@ -334,6 +336,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                   return next;
                 })}
                 onMentionInserted={onMentionInserted}
+                viewMode={diffView as 'unified' | 'split'}
               />
             ) : null}
           </div>
@@ -459,6 +462,33 @@ function LineStats({ oldContent, newContent }: { oldContent: string; newContent:
       {added > 0 && <span className="text-green-600 dark:text-green-400 font-medium">+{added}</span>}
       {deleted > 0 && <span className="text-red-600 dark:text-red-400 font-medium">−{deleted}</span>}
       {added === 0 && deleted === 0 && <span className="text-gray-400 dark:text-gray-500">no changes</span>}
+    </span>
+  );
+}
+
+function DiffViewToggle({ value, onChange }: { value: 'unified' | 'split'; onChange: (v: string) => void }) {
+  return (
+    <span className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 ml-1">
+      <button
+        onClick={() => onChange('unified')}
+        className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${
+          value === 'unified'
+            ? 'bg-blue-500 text-white'
+            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+        }`}
+      >
+        Unified
+      </button>
+      <button
+        onClick={() => onChange('split')}
+        className={`px-2 py-0.5 text-[11px] font-medium transition-colors border-l border-gray-200 dark:border-gray-700 ${
+          value === 'split'
+            ? 'bg-blue-500 text-white'
+            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+        }`}
+      >
+        Side by Side
+      </button>
     </span>
   );
 }

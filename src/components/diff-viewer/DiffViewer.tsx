@@ -23,6 +23,7 @@ interface Props {
   scrollToLine?: number;
   onScrollHandled?: () => void;
   onMentionInserted?: (user: IdentitySearchResult) => void;
+  viewMode?: 'unified' | 'split';
 }
 
 export interface DiffLine {
@@ -73,6 +74,48 @@ export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
   return result;
 }
 
+export interface SplitPair {
+  left: DiffLine | null;   // old/removed line (shown on left pane)
+  right: DiffLine | null;  // new/added line (shown on right pane)
+}
+
+/** Pair diff lines for side-by-side rendering. Consecutive removed+added blocks are zipped. */
+export function computeSplitPairs(diffLines: DiffLine[]): SplitPair[] {
+  const pairs: SplitPair[] = [];
+  let i = 0;
+
+  while (i < diffLines.length) {
+    const line = diffLines[i];
+
+    if (line.type === 'unchanged') {
+      pairs.push({ left: line, right: line });
+      i++;
+    } else {
+      const removed: DiffLine[] = [];
+      const added: DiffLine[] = [];
+
+      while (i < diffLines.length && diffLines[i].type === 'removed') {
+        removed.push(diffLines[i]);
+        i++;
+      }
+      while (i < diffLines.length && diffLines[i].type === 'added') {
+        added.push(diffLines[i]);
+        i++;
+      }
+
+      const maxLen = Math.max(removed.length, added.length);
+      for (let j = 0; j < maxLen; j++) {
+        pairs.push({
+          left: j < removed.length ? removed[j] : null,
+          right: j < added.length ? added[j] : null,
+        });
+      }
+    }
+  }
+
+  return pairs;
+}
+
 type HunkItem =
   | { kind: 'line'; idx: number }
   | { kind: 'collapsed'; fromIdx: number; toIdx: number; hiddenCount: number };
@@ -108,6 +151,37 @@ function buildHunks(diffLines: DiffLine[], threadLineSet: Set<number>): HunkItem
   return items;
 }
 
+/** Build compact hunks for split-pair view. */
+function buildSplitHunks(pairs: SplitPair[], threadLineSet: Set<number>): HunkItem[] {
+  const visible = new Array(pairs.length).fill(false);
+
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i];
+    const isChange = !pair.left || !pair.right || pair.left.type !== 'unchanged' || pair.right.type !== 'unchanged';
+    const hasThread = pair.right?.newLineNum != null && threadLineSet.has(pair.right.newLineNum);
+
+    if (isChange || hasThread) {
+      for (let c = Math.max(0, i - CONTEXT_LINES); c <= Math.min(pairs.length - 1, i + CONTEXT_LINES); c++) {
+        visible[c] = true;
+      }
+    }
+  }
+
+  const items: HunkItem[] = [];
+  let idx = 0;
+  while (idx < pairs.length) {
+    if (visible[idx]) {
+      items.push({ kind: 'line', idx });
+      idx++;
+    } else {
+      const fromIdx = idx;
+      while (idx < pairs.length && !visible[idx]) idx++;
+      items.push({ kind: 'collapsed', fromIdx, toIdx: idx - 1, hiddenCount: idx - fromIdx });
+    }
+  }
+  return items;
+}
+
 export function DiffViewer({
   oldContent,
   newContent,
@@ -125,6 +199,7 @@ export function DiffViewer({
   scrollToLine,
   onScrollHandled,
   onMentionInserted,
+  viewMode = 'unified',
 }: Props) {
   const [commentLine, setCommentLine] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
@@ -176,7 +251,19 @@ export function DiffViewer({
     [diffLines, threads],
   );
 
-  const hasCollapsed = hunks.some((h) => h.kind === 'collapsed');
+  const splitPairs = useMemo(
+    () => viewMode === 'split' ? computeSplitPairs(diffLines) : [],
+    [diffLines, viewMode],
+  );
+
+  const splitHunks = useMemo(
+    () => viewMode === 'split' ? buildSplitHunks(splitPairs, threadLineSet) : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [splitPairs, threads, viewMode],
+  );
+
+  const activeHunks = viewMode === 'split' ? splitHunks : hunks;
+  const hasCollapsed = activeHunks.some((h) => h.kind === 'collapsed');
 
   // Scroll to a specific line when requested
   useEffect(() => {
@@ -268,6 +355,69 @@ export function DiffViewer({
     );
   };
 
+  const renderSplitDiffLine = (idx: number) => {
+    const pair = splitPairs[idx];
+    const newLineNum = pair.right?.newLineNum ?? null;
+    const lineThreads = newLineNum ? threadsByLine[newLineNum] || [] : [];
+
+    return (
+      <SplitDiffLineRow
+        key={idx}
+        pair={pair}
+        lineColors={lineColors}
+        lineTextColors={lineTextColors}
+        gutterColors={gutterColors}
+        lineThreads={lineThreads}
+        isCommentOpen={commentLine != null && commentLine === newLineNum}
+        onGutterClick={() => {
+          if (newLineNum) {
+            setCommentLine(commentLine === newLineNum ? null : newLineNum);
+            setCommentText('');
+          }
+        }}
+        commentText={commentText}
+        onCommentTextChange={setCommentText}
+        sending={sending}
+        onSubmitComment={handleSubmitComment}
+        onCancelComment={() => { setCommentLine(null); setCommentText(''); }}
+        onReply={onReply}
+        onSetStatus={onSetStatus}
+        onDeleteComment={onDeleteComment}
+        onToggleLike={onToggleLike}
+        usersMap={usersMap}
+        currentUserId={currentUserId}
+        isPrOwner={isPrOwner}
+        hiddenThreadIds={hiddenThreadIds}
+        onToggleHideThread={onToggleHideThread}
+        knownUsers={knownUsers}
+        onMentionInserted={onMentionInserted}
+        autoExpand={autoExpandLine != null && autoExpandLine === newLineNum}
+        onAutoExpandHandled={() => setAutoExpandLine(null)}
+      />
+    );
+  };
+
+  const renderHunks = (items: HunkItem[], renderLine: (idx: number) => React.ReactNode, colSpan: number) => {
+    return expanded
+      ? (viewMode === 'split' ? splitPairs : diffLines).map((_, idx) => renderLine(idx))
+      : items.map((item, hunkIdx) => {
+          if (item.kind === 'line') return renderLine(item.idx);
+          if (expandedSections.has(hunkIdx)) {
+            const lines = [];
+            for (let i = item.fromIdx; i <= item.toIdx; i++) {
+              lines.push(renderLine(i));
+            }
+            return lines;
+          }
+          return (
+            <tr key={`sep-${hunkIdx}`} className="select-none cursor-pointer group" onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}>
+              <td colSpan={Math.ceil(colSpan / 2)} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
+              <td colSpan={colSpan - Math.ceil(colSpan / 2)} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900" />
+            </tr>
+          );
+        });
+  };
+
   return (
     <div className="text-xs font-mono relative" ref={scrollContainerRef}>
       <div className="min-w-0 overflow-x-auto">
@@ -282,28 +432,27 @@ export function DiffViewer({
           </div>
         )}
 
-        <table className="w-full border-collapse">
-          <tbody>
-            {expanded
-              ? diffLines.map((_, idx) => renderDiffLine(idx))
-              : hunks.map((item, hunkIdx) => {
-                  if (item.kind === 'line') return renderDiffLine(item.idx);
-                  if (expandedSections.has(hunkIdx)) {
-                    const lines = [];
-                    for (let i = item.fromIdx; i <= item.toIdx; i++) {
-                      lines.push(renderDiffLine(i));
-                    }
-                    return lines;
-                  }
-                  return (
-                    <tr key={`sep-${hunkIdx}`} className="select-none cursor-pointer group" onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}>
-                      <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
-                      <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900" />
-                    </tr>
-                  );
-                })}
-          </tbody>
-        </table>
+        {viewMode === 'split' ? (
+          <table className="w-full border-collapse table-fixed">
+            <colgroup>
+              <col style={{ width: 40 }} />
+              <col />
+              <col style={{ width: 1 }} />
+              <col style={{ width: 40 }} />
+              <col style={{ width: 20 }} />
+              <col />
+            </colgroup>
+            <tbody>
+              {renderHunks(splitHunks, renderSplitDiffLine, 6)}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full border-collapse">
+            <tbody>
+              {renderHunks(hunks, renderDiffLine, 4)}
+            </tbody>
+          </table>
+        )}
 
         {unmatchedThreads.length > 0 && (
           <div className="border-t border-gray-200 dark:border-gray-700 p-4 font-sans">
@@ -402,6 +551,121 @@ function DiffLineRow({
       <td className={`px-3 py-0 whitespace-pre ${lineTextColors[line.type]}`}>
         <span className="select-none opacity-50 mr-1">{prefix}</span>
         {line.content}
+      </td>
+    </tr>
+  );
+}
+
+function SplitDiffLineRow({
+  pair, lineColors, lineTextColors, gutterColors, lineThreads,
+  isCommentOpen, onGutterClick, commentText, onCommentTextChange,
+  sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
+  usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
+  autoExpand, onAutoExpandHandled,
+}: {
+  pair: SplitPair;
+  lineColors: Record<string, string>;
+  lineTextColors: Record<string, string>;
+  gutterColors: Record<string, string>;
+  lineThreads: PullRequestThread[];
+  isCommentOpen: boolean;
+  onGutterClick: () => void;
+  commentText: string;
+  onCommentTextChange: (v: string) => void;
+  sending: boolean;
+  onSubmitComment: () => void;
+  onCancelComment: () => void;
+  onReply: (threadId: number, content: string) => Promise<void>;
+  onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
+  onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
+  onToggleLike?: (threadId: number, commentId: number, currentUserId: string) => Promise<void>;
+  usersMap?: Record<string, string>;
+  currentUserId?: string;
+  isPrOwner?: boolean;
+  hiddenThreadIds?: Set<number>;
+  onToggleHideThread?: (threadId: number) => void;
+  knownUsers?: IdentitySearchResult[];
+  onMentionInserted?: (user: IdentitySearchResult) => void;
+  autoExpand?: boolean;
+  onAutoExpandHandled?: () => void;
+}) {
+  const leftType = pair.left?.type ?? 'unchanged';
+  const rightType = pair.right?.type ?? 'unchanged';
+  const leftEmpty = !pair.left;
+  const rightEmpty = !pair.right;
+
+  const emptyBg = 'bg-gray-100 dark:bg-gray-800';
+  const leftPrefix = pair.left?.type === 'removed' ? '-' : ' ';
+  const rightPrefix = pair.right?.type === 'added' ? '+' : ' ';
+
+  return (
+    <tr className="hover:brightness-95" data-line={pair.right?.newLineNum ?? undefined}>
+      {/* Left: old line number */}
+      <td className={`text-right px-2 py-0 select-none ${leftEmpty ? emptyBg : gutterColors[leftType]}`}>
+        {pair.left?.oldLineNum ?? ''}
+      </td>
+      {/* Left: old content */}
+      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${leftEmpty ? emptyBg : `${lineColors[leftType]} ${lineTextColors[leftType]}`}`}>
+        {pair.left && (
+          <>
+            <span className="select-none opacity-50 mr-1">{leftPrefix}</span>
+            {pair.left.content}
+          </>
+        )}
+      </td>
+      {/* Divider */}
+      <td className="bg-gray-300 dark:bg-gray-600" />
+      {/* Right: new line number */}
+      <td className={`text-right px-2 py-0 select-none ${rightEmpty ? emptyBg : gutterColors[rightType]}`}>
+        {pair.right?.newLineNum ?? ''}
+      </td>
+      {/* Right: comment gutter */}
+      <td
+        className={`text-center px-1 py-0 select-none ${rightEmpty ? emptyBg : gutterColors[rightType]} ${lineThreads.length > 0 || rightEmpty ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
+        onClick={lineThreads.length > 0 || rightEmpty ? undefined : onGutterClick}
+        title={lineThreads.length > 0 || rightEmpty ? undefined : 'Add comment'}
+      >
+        {lineThreads.length > 0 ? (
+          <CommentIndicator
+            lineThreads={lineThreads}
+            onReply={onReply}
+            onSetStatus={onSetStatus}
+            onDeleteComment={onDeleteComment}
+            onToggleLike={onToggleLike}
+            usersMap={usersMap}
+            currentUserId={currentUserId}
+            isPrOwner={isPrOwner}
+            hiddenThreadIds={hiddenThreadIds}
+            onToggleHideThread={onToggleHideThread}
+            knownUsers={knownUsers}
+            onMentionInserted={onMentionInserted}
+            autoExpand={autoExpand}
+            onAutoExpandHandled={onAutoExpandHandled}
+          />
+        ) : (
+          pair.right?.newLineNum ? (
+            <AddCommentPopover
+              isOpen={isCommentOpen}
+              onGutterClick={onGutterClick}
+              commentText={commentText}
+              onCommentTextChange={onCommentTextChange}
+              sending={sending}
+              onSubmitComment={onSubmitComment}
+              onCancelComment={onCancelComment}
+              knownUsers={knownUsers}
+              onMentionInserted={onMentionInserted}
+            />
+          ) : ''
+        )}
+      </td>
+      {/* Right: new content */}
+      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${rightEmpty ? emptyBg : `${lineColors[rightType]} ${lineTextColors[rightType]}`}`}>
+        {pair.right && (
+          <>
+            <span className="select-none opacity-50 mr-1">{rightPrefix}</span>
+            {pair.right.content}
+          </>
+        )}
       </td>
     </tr>
   );

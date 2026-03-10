@@ -68,6 +68,7 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
   const [fileContent, setFileContent] = useState<{ oldContent: string; newContent: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+  const [diffView, setDiffView] = useState<'unified' | 'split'>('unified');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -165,6 +166,28 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
                   text={changeTypeLabel(selectedChange.changeType)}
                   color={changeTypeBadgeColor(selectedChange.changeType)}
                 />
+                <span className="ml-auto inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setDiffView('unified')}
+                    className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                      diffView === 'unified'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Unified
+                  </button>
+                  <button
+                    onClick={() => setDiffView('split')}
+                    className={`px-2 py-0.5 text-[11px] font-medium transition-colors border-l border-gray-200 dark:border-gray-700 ${
+                      diffView === 'split'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Side by Side
+                  </button>
+                </span>
               </div>
               {loadingFile ? (
                 <Spinner className="py-10" />
@@ -177,6 +200,7 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
                   onAddComment={noop}
                   onReply={noop}
                   onSetStatus={noop}
+                  viewMode={diffView}
                 />
               ) : null}
             </div>
