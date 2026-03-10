@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete } from '../api';
 import { useAuth } from '../context';
@@ -63,6 +64,7 @@ export function PrDetailPage() {
     variant: 'primary' | 'danger'; onConfirm: () => void;
   } | null>(null);
   const closeConfirm = useCallback(() => setConfirmDialog(null), []);
+  const [showAutoCompleteDialog, setShowAutoCompleteDialog] = useState(false);
 
   if (loading) return <Spinner className="mt-20" />;
   if (error || !pr) return <ErrorBanner message={error || 'PR not found'} />;
@@ -143,11 +145,27 @@ export function PrDetailPage() {
 
   const handleToggleAutoComplete = async () => {
     if (!profile) return;
+    if (hasAutoComplete) {
+      setActionLoading(true);
+      try {
+        const updated = await cancelAutoComplete(repoId!, pr.pullRequestId);
+        setPr(updated);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Autocomplete toggle failed');
+      } finally {
+        setActionLoading(false);
+      }
+    } else {
+      setShowAutoCompleteDialog(true);
+    }
+  };
+
+  const handleAutoCompleteConfirm = async (options: import('../types').PullRequestCompletionOptions) => {
+    if (!profile) return;
+    setShowAutoCompleteDialog(false);
     setActionLoading(true);
     try {
-      const updated = hasAutoComplete
-        ? await cancelAutoComplete(repoId!, pr.pullRequestId)
-        : await setAutoComplete(repoId!, pr.pullRequestId, profile.id, pr.completionOptions);
+      const updated = await setAutoComplete(repoId!, pr.pullRequestId, profile.id, options);
       setPr(updated);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Autocomplete toggle failed');
@@ -306,6 +324,113 @@ export function PrDetailPage() {
         onConfirm={confirmDialog?.onConfirm ?? closeConfirm}
         onCancel={closeConfirm}
       />
+      <AutoCompleteDialog
+        open={showAutoCompleteDialog}
+        defaults={pr.completionOptions}
+        onConfirm={handleAutoCompleteConfirm}
+        onCancel={() => setShowAutoCompleteDialog(false)}
+      />
     </div>
+  );
+}
+
+function AutoCompleteDialog({
+  open,
+  defaults,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  defaults?: import('../types').PullRequestCompletionOptions;
+  onConfirm: (options: import('../types').PullRequestCompletionOptions) => void;
+  onCancel: () => void;
+}) {
+  const [mergeStrategy, setMergeStrategy] = useState(defaults?.mergeStrategy ?? 'squash');
+  const [deleteSourceBranch, setDeleteSourceBranch] = useState(defaults?.deleteSourceBranch ?? true);
+  const [transitionWorkItems, setTransitionWorkItems] = useState(defaults?.transitionWorkItems ?? true);
+
+  // Sync defaults when dialog opens with fresh PR data
+  useEffect(() => {
+    if (open) {
+      setMergeStrategy(defaults?.mergeStrategy ?? 'squash');
+      setDeleteSourceBranch(defaults?.deleteSourceBranch ?? true);
+      setTransitionWorkItems(defaults?.transitionWorkItems ?? true);
+    }
+  }, [open, defaults]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onCancel]);
+
+  if (!open) return null;
+
+  const strategies: { value: string; label: string }[] = [
+    { value: 'squash', label: 'Squash commit' },
+    { value: 'noFastForward', label: 'Merge (no fast-forward)' },
+    { value: 'rebase', label: 'Rebase' },
+    { value: 'rebaseMerge', label: 'Rebase and merge' },
+  ];
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full mx-4 p-5">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Set Autocomplete</h3>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Merge strategy</label>
+            <select
+              value={mergeStrategy}
+              onChange={(e) => setMergeStrategy(e.target.value as typeof mergeStrategy)}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {strategies.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={deleteSourceBranch}
+              onChange={(e) => setDeleteSourceBranch(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+            />
+            Delete source branch after merge
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={transitionWorkItems}
+              onChange={(e) => setTransitionWorkItems(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+            />
+            Transition linked work items
+          </label>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm({ mergeStrategy, deleteSourceBranch, transitionWorkItems })}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+          >
+            Set Autocomplete
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
