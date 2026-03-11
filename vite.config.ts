@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { copilotPlugin } from './src/server/copilot-middleware'
+import { gitMergePlugin } from './src/server/git-merge'
 import { getAzAccessToken } from './src/server/az-token'
 
 async function proxyRequest(req: IncomingMessage, res: ServerResponse, targetUrl: string) {
@@ -65,6 +66,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     copilotPlugin(),
+    gitMergePlugin(),
     {
       name: 'ado-proxy',
       configureServer(server) {

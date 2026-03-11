@@ -15,12 +15,13 @@ import { ThreadsTab } from '../components/pr-detail/ThreadsTab';
 import { PoliciesTab } from '../components/pr-detail/PoliciesTab';
 import { CopilotTab } from '../components/pr-detail/CopilotTab';
 import { CommitsTab } from '../components/pr-detail/CommitsTab';
+import { ConflictsTab } from '../components/pr-detail/ConflictsTab';
 
-type Tab = 'overview' | 'files' | 'threads' | 'commits' | 'policies' | 'copilot';
+type Tab = 'overview' | 'files' | 'threads' | 'commits' | 'policies' | 'conflicts' | 'copilot';
 
 export function PrDetailPage() {
   const { repoId, prId } = useParams<{ repoId: string; prId: string }>();
-  const { profile } = useAuth();
+  const { profile, config } = useAuth();
   const [pr, setPr] = useState<PullRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,7 +177,9 @@ export function PrDetailPage() {
     }
   };
 
-  const tabs: { id: Tab; label: string; count?: number }[] = [
+  const hasConflicts = pr.mergeStatus === 'conflicts';
+
+  const tabs: { id: Tab; label: string; count?: number; warn?: boolean }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'files', label: 'Files', count: diff.changes.length },
     {
@@ -186,6 +189,7 @@ export function PrDetailPage() {
     },
     { id: 'commits', label: 'Commits', count: commits.commits.length },
     { id: 'policies', label: 'Policies' },
+    ...(hasConflicts ? [{ id: 'conflicts' as const, label: 'Conflicts', warn: true }] : []),
     { id: 'copilot', label: 'Copilot' },
   ];
 
@@ -267,6 +271,11 @@ export function PrDetailPage() {
               }`}
             >
               {tab.label}
+              {tab.warn && (
+                <span className="ml-1.5 rounded-full bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 px-2 py-0.5 text-xs font-semibold">
+                  !
+                </span>
+              )}
               {tab.count != null && tab.count > 0 && (
                 <span className="ml-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs">
                   {tab.count}
@@ -276,7 +285,7 @@ export function PrDetailPage() {
           ))}
         </div>
 
-        <div className={activeTab === 'files' || activeTab === 'copilot' || activeTab === 'commits' ? 'p-0' : 'p-6'}>
+        <div className={activeTab === 'files' || activeTab === 'copilot' || activeTab === 'commits' || activeTab === 'conflicts' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
             <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} knownUsers={knownUsers} onMentionInserted={handleMentionInserted} />
           )}
@@ -322,6 +331,16 @@ export function PrDetailPage() {
           )}
           {activeTab === 'copilot' && (
             <CopilotTab pr={pr} />
+          )}
+          {activeTab === 'conflicts' && (
+            <ConflictsTab
+              repoPath={config?.repoPath ?? ''}
+              sourceBranch={pr.sourceRefName}
+              targetBranch={pr.targetRefName}
+              onRefreshPr={() => {
+                getPullRequest(repoId!, Number(prId)).then(setPr).catch(() => {});
+              }}
+            />
           )}
         </div>
       </div>
