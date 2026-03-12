@@ -14,7 +14,7 @@ const EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 
 function execAz(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile('az', args, { timeout: 15_000 }, (err, stdout, stderr) => {
+    execFile('az', args, { timeout: 15_000, shell: true }, (err, stdout, stderr) => {
       if (err) {
         const hint = stderr?.includes('az login')
           ? 'Run `az login` to authenticate.'
