@@ -118,23 +118,31 @@ export function copilotPlugin(): Plugin {
                   // Resolve the local MCP server binary directly instead of
                   // using npx, which may fail on Windows or pick up a global
                   // install instead of the local one.
+                  const isWindows = process.platform === 'win32';
                   const mcpEntry = resolve(
                     process.cwd(),
-                    'node_modules/@azure-devops/mcp/dist/index.js',
+                    isWindows
+                      ? 'node_modules/@azure-devops/mcp/dist/index.js'
+                      : 'node_modules/azure-devops-mcp/dist/index.js',
                   );
                   const mcpConfig = {
                     mcpServers: {
                       'azure-devops': {
                         command: 'node',
-                        args: [
-                          mcpEntry,
-                          config.adoOrg,
-                          '--authentication', 'envvar',
-                        ],
-                        env: {
-                          ADO_MCP_AUTH_TOKEN: azToken,
-                          ...(config.adoProject ? { AZURE_DEVOPS_PROJECT: config.adoProject } : {}),
-                        },
+                        args: isWindows
+                          ? [mcpEntry, config.adoOrg, '--authentication', 'envvar']
+                          : [mcpEntry],
+                        env: isWindows
+                          ? {
+                              ADO_MCP_AUTH_TOKEN: azToken,
+                              ...(config.adoProject ? { AZURE_DEVOPS_PROJECT: config.adoProject } : {}),
+                            }
+                          : {
+                              AZURE_DEVOPS_URL: config.adoServerUrl!,
+                              AZURE_DEVOPS_PAT: azToken,
+                              AZURE_DEVOPS_COLLECTION: config.adoOrg!,
+                              ...(config.adoProject ? { AZURE_DEVOPS_PROJECT: config.adoProject } : {}),
+                            },
                       },
                     },
                   };
