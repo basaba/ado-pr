@@ -114,15 +114,25 @@ export function copilotPlugin(): Plugin {
               if (config.adoServerUrl && config.adoOrg) {
                 try {
                   const azToken = await getAzAccessToken();
+
+                  // Resolve the local MCP server binary directly instead of
+                  // using npx, which may fail on Windows or pick up a global
+                  // install instead of the local one.
+                  const mcpEntry = resolve(
+                    process.cwd(),
+                    'node_modules/@azure-devops/mcp/dist/index.js',
+                  );
                   const mcpConfig = {
                     mcpServers: {
                       'azure-devops': {
-                        command: 'npx',
-                        args: ['azure-devops-mcp'],
+                        command: 'node',
+                        args: [
+                          mcpEntry,
+                          config.adoOrg,
+                          '--authentication', 'envvar',
+                        ],
                         env: {
-                          AZURE_DEVOPS_URL: config.adoServerUrl,
-                          AZURE_DEVOPS_PAT: azToken,
-                          AZURE_DEVOPS_COLLECTION: config.adoOrg,
+                          ADO_MCP_AUTH_TOKEN: azToken,
                           ...(config.adoProject ? { AZURE_DEVOPS_PROJECT: config.adoProject } : {}),
                         },
                       },
