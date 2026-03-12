@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 import type { ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
-import { chmodSync, writeFileSync, unlinkSync, mkdtempSync } from 'node:fs';
+import { chmodSync, existsSync, writeFileSync, unlinkSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -30,6 +30,16 @@ function json(res: ServerResponse, status: number, data: unknown) {
  */
 function copilotBin(): { file: string; prefixArgs: string[] } {
   const platformBin = `copilot-${process.platform}-${process.arch}`;
+
+  // On Windows, .bin shims are #!/bin/sh scripts that node-pty can't execute
+  // (error 193). Resolve the real binary from the package folder instead.
+  if (process.platform === 'win32') {
+    const nativePkg = resolve(process.cwd(), 'node_modules', `@github/${platformBin}`, 'copilot.exe');
+    if (existsSync(nativePkg)) {
+      return { file: nativePkg, prefixArgs: [] };
+    }
+  }
+
   const nativePath = resolve(process.cwd(), 'node_modules/.bin', platformBin);
   try {
     chmodSync(nativePath, 0o755); // ensure executable
