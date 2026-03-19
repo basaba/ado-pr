@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
-import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete } from '../api';
+import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete, adoClient } from '../api';
 import { useAuth } from '../context';
 import { useThreads, useDiff, useCommits, useSearchParamState } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
@@ -208,6 +208,25 @@ export function PrDetailPage() {
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               {pr.title}
               {pr.isDraft && <Badge text="Draft" color="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300" />}
+              <button
+                type="button"
+                title="Copy PR link"
+                onClick={async () => {
+                  const prUrl = `${adoClient.orgUrl}/${encodeURIComponent(adoClient.projectName)}/_git/${encodeURIComponent(pr.repository.name)}/pullrequest/${pr.pullRequestId}`;
+                  try {
+                    await navigator.clipboard.writeText(prUrl);
+                    showToast('PR link copied to clipboard', 'success');
+                  } catch {
+                    showToast('Failed to copy link');
+                  }
+                }}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
+                  <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
+                </svg>
+              </button>
             </h1>
             <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex gap-3">
               <span>{pr.repository.name}</span>
