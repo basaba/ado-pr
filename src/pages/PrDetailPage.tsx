@@ -337,7 +337,7 @@ export function PrDetailPage() {
             />
           )}
           {activeTab === 'policies' && (
-            <PoliciesTab prId={Number(prId)} />
+            <PoliciesTab prId={Number(prId)} repoName={pr.repository.name} />
           )}
           {activeTab === 'commits' && (
             <CommitsTab

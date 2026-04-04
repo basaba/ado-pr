@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useCommitDiff } from '../../hooks/useCommitDiff';
-import { useSearchParamStateNullable, useSearchParamState } from '../../hooks';
+import { useSearchParamStateNullable, useLocalStorageState } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
@@ -93,7 +93,7 @@ interface Props {
 export function CommitDiffView({ repoId, commitId }: Props) {
   const { changes, loading, error, fetchFilePair } = useCommitDiff(repoId, commitId);
   const [selectedFile, setSelectedFile] = useSearchParamStateNullable('commitFile');
-  const [diffView, setDiffView] = useSearchParamState('commitDiffView', 'unified');
+  const [diffView, setDiffView] = useLocalStorageState<'unified' | 'split'>('ado-pr-diff-view', 'unified');
   const [fileContent, setFileContent] = useState<{ oldContent: string; newContent: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
@@ -219,7 +219,7 @@ export function CommitDiffView({ repoId, commitId }: Props) {
                 color={changeTypeBadgeColor(selectedChange.changeType)}
               />
               {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
-              <DiffViewToggle value={diffView as 'unified' | 'split'} onChange={setDiffView} />
+              <DiffViewToggle value={diffView} onChange={setDiffView} />
             </div>
             {loadingFile ? (
               <Spinner className="py-10" />
@@ -232,7 +232,7 @@ export function CommitDiffView({ repoId, commitId }: Props) {
                 onAddComment={async () => {}}
                 onReply={async () => {}}
                 onSetStatus={async () => {}}
-                viewMode={diffView as 'unified' | 'split'}
+                viewMode={diffView}
               />
             ) : null}
           </div>
@@ -358,7 +358,7 @@ function LineStats({ oldContent, newContent }: { oldContent: string; newContent:
   );
 }
 
-function DiffViewToggle({ value, onChange }: { value: 'unified' | 'split'; onChange: (v: string) => void }) {
+function DiffViewToggle({ value, onChange }: { value: 'unified' | 'split'; onChange: (v: 'unified' | 'split') => void }) {
   return (
     <span className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 ml-1">
       <button

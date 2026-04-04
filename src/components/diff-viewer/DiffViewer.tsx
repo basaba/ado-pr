@@ -4,6 +4,7 @@ import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment } from '../../utils';
 import { MarkdownContent, MentionTextarea, ConfirmDialog } from '../common';
 import type { IdentitySearchResult } from '../../api/pullRequests';
+import { useLocalStorageState } from '../../hooks';
 
 interface Props {
   oldContent: string;
@@ -205,7 +206,9 @@ export function DiffViewer({
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
   const [autoExpandLine, setAutoExpandLine] = useState<number | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpandedRaw] = useLocalStorageState<'true' | 'false'>('ado-pr-diff-expanded', 'false');
+  const isExpanded = expanded === 'true';
+  const setExpanded = useCallback((v: boolean) => setExpandedRaw(v ? 'true' : 'false'), [setExpandedRaw]);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [containerWidth, setContainerWidth] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -403,7 +406,7 @@ export function DiffViewer({
   };
 
   const renderHunks = (items: HunkItem[], renderLine: (idx: number) => React.ReactNode, colSpan: number) => {
-    return expanded
+    return isExpanded
       ? (viewMode === 'split' ? splitPairs : diffLines).map((_, idx) => renderLine(idx))
       : items.map((item, hunkIdx) => {
           if (item.kind === 'line') return renderLine(item.idx);
@@ -435,10 +438,10 @@ export function DiffViewer({
         {hasCollapsed && (
           <div className="flex justify-end px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 font-sans">
             <button
-              onClick={() => { setExpanded(!expanded); setExpandedSections(new Set()); }}
+              onClick={() => { setExpanded(!isExpanded); setExpandedSections(new Set()); }}
               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
-              {expanded ? '⊟ Compact diff' : '⊞ Show full file'}
+              {isExpanded ? '⊟ Compact diff' : '⊞ Show full file'}
             </button>
           </div>
         )}

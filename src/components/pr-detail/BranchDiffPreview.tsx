@@ -4,6 +4,7 @@ import type { BranchDiffChange } from '../../api/diffs';
 import { Spinner, Badge } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
+import { useLocalStorageState } from '../../hooks';
 
 interface Props {
   repoId: string;
@@ -68,7 +69,7 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
   const [fileContent, setFileContent] = useState<{ oldContent: string; newContent: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
-  const [diffView, setDiffView] = useState<'unified' | 'split'>('unified');
+  const [diffView, setDiffView] = useLocalStorageState<'unified' | 'split'>('ado-pr-diff-view', 'unified');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

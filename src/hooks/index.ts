@@ -6,3 +6,4 @@ export { useCommitDiff } from './useCommitDiff';
 export { useCopilotTerminal } from './useCopilotTerminal';
 export type { UseCopilotTerminalOptions, UseCopilotTerminalReturn } from './useCopilotTerminal';
 export { useSearchParamState, useSearchParamStateNullable, useSearchParamStateSet } from './useSearchParamState';
+export { useLocalStorageState } from './useLocalStorageState';

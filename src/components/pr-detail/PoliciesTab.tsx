@@ -31,7 +31,16 @@ const STATUS_COLOR: Record<string, string> = {
   broken: 'text-yellow-600 dark:text-yellow-400',
 };
 
-function getPolicyUrl(ev: PolicyEvaluation): string | null {
+const POP_POLICY_CONFIG_ID = 966624;
+
+function isProofOfPresencePolicy(ev: PolicyEvaluation): boolean {
+  return ev.configuration.id === POP_POLICY_CONFIG_ID;
+}
+
+function getPolicyUrl(ev: PolicyEvaluation, prId: number, repoName?: string): string | null {
+  if (isProofOfPresencePolicy(ev) && repoName) {
+    return `${adoClient.orgUrl}/${encodeURIComponent(adoClient.projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${prId}`;
+  }
   if (ev.context?.buildId) {
     return `${adoClient.orgUrl}/${encodeURIComponent(adoClient.projectName)}/_build/results?buildId=${ev.context.buildId}`;
   }
@@ -40,9 +49,10 @@ function getPolicyUrl(ev: PolicyEvaluation): string | null {
 
 interface Props {
   prId: number;
+  repoName: string;
 }
 
-export function PoliciesTab({ prId }: Props) {
+export function PoliciesTab({ prId, repoName }: Props) {
   const [evaluations, setEvaluations] = useState<PolicyEvaluation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +122,7 @@ export function PoliciesTab({ prId }: Props) {
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 {(() => {
-                  const url = getPolicyUrl(ev);
+                  const url = getPolicyUrl(ev, prId, repoName);
                   const name = ev.configuration.type.displayName;
                   return url ? (
                     <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline text-blue-600 dark:text-blue-400">
@@ -143,6 +153,17 @@ export function PoliciesTab({ prId }: Props) {
             <span className={`text-xs font-medium ${STATUS_COLOR[ev.status] ?? 'text-gray-500 dark:text-gray-400'}`}>
               {STATUS_LABEL[ev.status] ?? ev.status}
             </span>
+            {isProofOfPresencePolicy(ev) && ev.status !== 'approved' && (
+              <a
+                href={getPolicyUrl(ev, prId, repoName)!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 px-3 py-1 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 rounded border border-purple-700 dark:border-purple-400 transition-colors"
+                title="Open ADO PR page to verify your presence"
+              >
+                🔐 Verify Presence
+              </a>
+            )}
             <button
               onClick={() => handleRequeue(ev.evaluationId)}
               disabled={requeueing[ev.evaluationId]}

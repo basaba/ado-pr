@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { useDiff, useThreads } from '../../hooks';
-import { useSearchParamStateNullable, useSearchParamState } from '../../hooks';
+import { useSearchParamStateNullable, useLocalStorageState } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
@@ -122,7 +122,7 @@ function buildFileTree(
 
 export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId, isPrOwner, onMentionInserted }: Props) {
   const [selectedFile, setSelectedFile] = useSearchParamStateNullable('file');
-  const [diffView, setDiffView] = useSearchParamState('diffView', 'unified');
+  const [diffView, setDiffView] = useLocalStorageState<'unified' | 'split'>('ado-pr-diff-view', 'unified');
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
     newContent: string;
@@ -302,7 +302,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
               {fileThreads.length > 0 && (
                 <span className="text-xs text-blue-600 dark:text-blue-400">💬 {fileThreads.length}</span>
               )}
-              <DiffViewToggle value={diffView as 'unified' | 'split'} onChange={setDiffView} />
+              <DiffViewToggle value={diffView} onChange={setDiffView} />
             </div>
             {loadingFile ? (
               <Spinner className="py-10" />
@@ -336,7 +336,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                   return next;
                 })}
                 onMentionInserted={onMentionInserted}
-                viewMode={diffView as 'unified' | 'split'}
+                viewMode={diffView}
               />
             ) : null}
           </div>
@@ -466,7 +466,7 @@ function LineStats({ oldContent, newContent }: { oldContent: string; newContent:
   );
 }
 
-function DiffViewToggle({ value, onChange }: { value: 'unified' | 'split'; onChange: (v: string) => void }) {
+function DiffViewToggle({ value, onChange }: { value: 'unified' | 'split'; onChange: (v: 'unified' | 'split') => void }) {
   return (
     <span className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 ml-1">
       <button
