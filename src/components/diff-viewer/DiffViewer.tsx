@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { PullRequestThread, ThreadStatus } from '../../types';
-import { formatDate, isTextComment } from '../../utils';
+import { formatDate, isTextComment, highlightLine } from '../../utils';
 import { MarkdownContent, MentionTextarea, ConfirmDialog } from '../common';
 import type { IdentitySearchResult } from '../../api/pullRequests';
 import { useLocalStorageState } from '../../hooks';
@@ -186,6 +186,7 @@ function buildSplitHunks(pairs: SplitPair[], threadLineSet: Set<number>): HunkIt
 export function DiffViewer({
   oldContent,
   newContent,
+  filePath,
   threads,
   onAddComment,
   onReply,
@@ -406,6 +407,13 @@ export function DiffViewer({
     return !line || !matchedLineSet.has(line);
   });
 
+  // Syntax-highlighted content renderer
+  const renderHighlighted = useCallback((content: string) => {
+    const html = highlightLine(content, filePath);
+    if (html == null) return content;
+    return <span dangerouslySetInnerHTML={{ __html: html }} />;
+  }, [filePath]);
+
   const renderDiffLine = (idx: number) => {
     const line = diffLines[idx];
     const newLineNum = line.newLineNum;
@@ -444,6 +452,7 @@ export function DiffViewer({
         onMentionInserted={onMentionInserted}
         autoExpand={autoExpandLine != null && autoExpandLine === newLineNum}
         onAutoExpandHandled={() => setAutoExpandLine(null)}
+        renderHighlighted={renderHighlighted}
       />
     );
   };
@@ -486,6 +495,7 @@ export function DiffViewer({
         onMentionInserted={onMentionInserted}
         autoExpand={autoExpandLine != null && autoExpandLine === newLineNum}
         onAutoExpandHandled={() => setAutoExpandLine(null)}
+        renderHighlighted={renderHighlighted}
       />
     );
   };
@@ -624,7 +634,7 @@ function DiffLineRow({
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
   usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
-  autoExpand, onAutoExpandHandled,
+  autoExpand, onAutoExpandHandled, renderHighlighted,
 }: {
   line: DiffLine;
   lineColors: Record<string, string>;
@@ -651,6 +661,7 @@ function DiffLineRow({
   onMentionInserted?: (user: IdentitySearchResult) => void;
   autoExpand?: boolean;
   onAutoExpandHandled?: () => void;
+  renderHighlighted: (content: string) => React.ReactNode;
 }) {
   const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
@@ -698,7 +709,7 @@ function DiffLineRow({
       </td>
       <td className={`px-3 py-0 whitespace-pre ${lineTextColors[line.type]}`}>
         <span className="select-none opacity-50 mr-1">{prefix}</span>
-        {line.content}
+        {renderHighlighted(line.content)}
       </td>
     </tr>
   );
@@ -709,7 +720,7 @@ function SplitDiffLineRow({
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
   usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
-  autoExpand, onAutoExpandHandled,
+  autoExpand, onAutoExpandHandled, renderHighlighted,
 }: {
   pair: SplitPair;
   lineColors: Record<string, string>;
@@ -736,6 +747,7 @@ function SplitDiffLineRow({
   onMentionInserted?: (user: IdentitySearchResult) => void;
   autoExpand?: boolean;
   onAutoExpandHandled?: () => void;
+  renderHighlighted: (content: string) => React.ReactNode;
 }) {
   const leftType = pair.left?.type ?? 'unchanged';
   const rightType = pair.right?.type ?? 'unchanged';
@@ -757,7 +769,7 @@ function SplitDiffLineRow({
         {pair.left && (
           <>
             <span className="select-none opacity-50 mr-1">{leftPrefix}</span>
-            {pair.left.content}
+            {renderHighlighted(pair.left.content)}
           </>
         )}
       </td>
@@ -811,7 +823,7 @@ function SplitDiffLineRow({
         {pair.right && (
           <>
             <span className="select-none opacity-50 mr-1">{rightPrefix}</span>
-            {pair.right.content}
+            {renderHighlighted(pair.right.content)}
           </>
         )}
       </td>
