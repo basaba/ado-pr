@@ -212,6 +212,9 @@ export function DiffViewer({
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [containerWidth, setContainerWidth] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showGoToLine, setShowGoToLine] = useState(false);
+  const [goToLineInput, setGoToLineInput] = useState('');
+  const goToLineRef = useRef<HTMLInputElement>(null);
 
   // Reset per-section expansions when view mode changes (hunk indices differ between unified and split)
   useEffect(() => {
@@ -319,6 +322,57 @@ export function DiffViewer({
     // Only trigger when isExpanded changes to true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
+
+  // Go-to-line: navigate to a specific line number
+  const goToLine = useCallback((lineNum: number) => {
+    // Expand full file so the target line is in the DOM
+    if (!isExpanded) {
+      setExpanded(true);
+      setExpandedSections(new Set());
+    }
+    // Delay to let the DOM render after expansion
+    setTimeout(() => {
+      const el = scrollContainerRef.current?.querySelector(`[data-line="${lineNum}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'instant', block: 'center' });
+        el.classList.add('bg-yellow-200', 'dark:bg-yellow-800/40');
+        setTimeout(() => el.classList.remove('bg-yellow-200', 'dark:bg-yellow-800/40'), 2000);
+      }
+    }, 60);
+  }, [isExpanded, setExpanded]);
+
+  const handleGoToLineSubmit = useCallback(() => {
+    const num = parseInt(goToLineInput, 10);
+    if (!isNaN(num) && num > 0) {
+      goToLine(num);
+    }
+    setShowGoToLine(false);
+    setGoToLineInput('');
+  }, [goToLineInput, goToLine]);
+
+  // Ctrl+G / Cmd+G keyboard shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+        // Only handle if focus is within this diff viewer or no specific input is focused
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const active = document.activeElement;
+        const isInThisDiff = container.contains(active) || active === document.body;
+        if (!isInThisDiff) return;
+        e.preventDefault();
+        setShowGoToLine((prev) => !prev);
+        setGoToLineInput('');
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // Auto-focus the go-to-line input when shown
+  useEffect(() => {
+    if (showGoToLine) goToLineRef.current?.focus();
+  }, [showGoToLine]);
 
   const handleSubmitComment = async () => {
     if (!commentText.trim() || commentLine == null) return;
@@ -467,7 +521,14 @@ export function DiffViewer({
     <div className="text-xs font-mono relative" ref={scrollContainerRef}>
       <div className="min-w-0 overflow-x-auto">
         {hasCollapsed && (
-          <div className="flex justify-end px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 font-sans">
+          <div className="flex justify-end gap-3 items-center px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 font-sans">
+            <button
+              onClick={() => { setShowGoToLine((v) => !v); setGoToLineInput(''); }}
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+              title="Go to line (Ctrl+G)"
+            >
+              Go to Line
+            </button>
             <button
               onClick={() => { setExpanded(!isExpanded); setExpandedSections(new Set()); }}
               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
@@ -475,6 +536,48 @@ export function DiffViewer({
               {isExpanded ? '⊟ Compact diff' : '⊞ Show full file'}
             </button>
           </div>
+        )}
+
+        {showGoToLine && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { setShowGoToLine(false); setGoToLineInput(''); }}>
+            <div
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 p-4 w-72 font-sans"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Go to Line</span>
+                <button
+                  onClick={() => { setShowGoToLine(false); setGoToLineInput(''); }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={goToLineRef}
+                  type="number"
+                  min={1}
+                  value={goToLineInput}
+                  onChange={(e) => setGoToLineInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleGoToLineSubmit();
+                    if (e.key === 'Escape') { setShowGoToLine(false); setGoToLineInput(''); }
+                  }}
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter line number"
+                />
+                <button
+                  onClick={handleGoToLineSubmit}
+                  className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
+                >
+                  Go
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Press Enter to go, Escape to close</p>
+            </div>
+          </div>,
+          document.body,
         )}
 
         {viewMode === 'split' ? (
