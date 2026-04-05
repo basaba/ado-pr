@@ -289,6 +289,37 @@ export function DiffViewer({
     return () => clearTimeout(timer);
   }, [scrollToLine, onScrollHandled]);
 
+  // Scroll to the first diff when switching to full-file view
+  useEffect(() => {
+    if (!isExpanded) return;
+    // Find the first changed line that has a newLineNum (used as data-line attribute).
+    // For pure deletions the first removed line's neighbors will have newLineNum set,
+    // so look for the nearest line with newLineNum around the first change.
+    const firstChangedIdx = diffLines.findIndex((l) => l.type !== 'unchanged');
+    if (firstChangedIdx === -1) return;
+    let targetLine: number | null = null;
+    // Search forward from the first change for a line with newLineNum
+    for (let i = firstChangedIdx; i < diffLines.length && targetLine == null; i++) {
+      if (diffLines[i].newLineNum != null) targetLine = diffLines[i].newLineNum;
+    }
+    // Fallback: search backward
+    if (targetLine == null) {
+      for (let i = firstChangedIdx - 1; i >= 0 && targetLine == null; i--) {
+        if (diffLines[i].newLineNum != null) targetLine = diffLines[i].newLineNum;
+      }
+    }
+    if (targetLine == null) return;
+    const timer = setTimeout(() => {
+      const el = scrollContainerRef.current?.querySelector(`[data-line="${targetLine}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+    // Only trigger when isExpanded changes to true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
+
   const handleSubmitComment = async () => {
     if (!commentText.trim() || commentLine == null) return;
     const postedLine = commentLine;
