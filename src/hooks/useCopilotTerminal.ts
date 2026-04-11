@@ -14,6 +14,8 @@ export interface UseCopilotTerminalOptions {
   adoProject: string;
   /** Local repo path for copilot --add-dir */
   repoPath?: string;
+  /** Source branch for isolated worktree */
+  sourceBranch?: string;
 }
 
 export interface UseCopilotTerminalReturn {
@@ -35,6 +37,7 @@ export function useCopilotTerminal({
   adoOrg,
   adoProject,
   repoPath,
+  sourceBranch,
 }: UseCopilotTerminalOptions): UseCopilotTerminalReturn {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -116,6 +119,7 @@ export function useCopilotTerminal({
         adoOrg,
         adoProject,
         repoPath,
+        sourceBranch,
         cols: term.cols,
         rows: term.rows,
       }));
@@ -183,7 +187,7 @@ export function useCopilotTerminal({
       fitRef.current = null;
       setConnected(false);
     };
-  }, [prPrompt, adoServerUrl, adoOrg, adoProject, repoPath, connectId]);
+  }, [prPrompt, adoServerUrl, adoOrg, adoProject, repoPath, sourceBranch, connectId]);
 
   return { terminalRef, connected, error, exited, reconnect };
 }

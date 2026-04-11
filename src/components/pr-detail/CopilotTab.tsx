@@ -16,6 +16,7 @@ export function CopilotTab({ pr }: CopilotTabProps) {
   const adoServerUrl = config?.serverUrl ?? '';
   const adoOrg = config?.organization ?? '';
   const adoProject = config?.project ?? '';
+  const sourceBranch = branchName(pr.sourceRefName);
 
   const prPrompt = [
     `You are a helpful code review assistant for an Azure DevOps pull request.`,
@@ -36,6 +37,7 @@ export function CopilotTab({ pr }: CopilotTabProps) {
     adoOrg,
     adoProject,
     repoPath,
+    sourceBranch,
   });
 
   return (
@@ -46,6 +48,7 @@ export function CopilotTab({ pr }: CopilotTabProps) {
           <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded px-2.5 py-1">
             <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
             Local repo: {repoPath}
+            {sourceBranch && <span className="text-xs opacity-75">(isolated worktree)</span>}
           </div>
         )}
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded border ${

@@ -29,6 +29,7 @@ export function ConflictsTab({ repoPath, sourceBranch, targetBranch, onRefreshPr
   const [interactiveMode, setInteractiveMode] = useState(false);
   const [resolving, setResolving] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
+  const [worktreePath, setWorktreePath] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const source = branchName(sourceBranch);
@@ -39,13 +40,15 @@ export function ConflictsTab({ repoPath, sourceBranch, targetBranch, onRefreshPr
     setError(null);
     try {
       const result = await startMerge(repoPath, sourceBranch, targetBranch);
+      if (result.worktreePath) setWorktreePath(result.worktreePath);
+
       if (result.status === 'clean') {
         setPhase('done');
         showToast('Merge completed without conflicts!');
         return;
       }
       if (result.status === 'conflicts') {
-        const conflictsData = await getConflicts(repoPath);
+        const conflictsData = await getConflicts(repoPath, result.worktreePath);
         setFiles(conflictsData.files);
         setResolvedPaths(new Set());
         setSelectedFile(conflictsData.files[0]?.path ?? null);
@@ -63,7 +66,7 @@ export function ConflictsTab({ repoPath, sourceBranch, targetBranch, onRefreshPr
   const handleResolve = useCallback(async (path: string, resolution: 'ours' | 'theirs' | 'manual', content?: string) => {
     setResolving(path);
     try {
-      await resolveFile(repoPath, path, resolution, content);
+      await resolveFile(repoPath, path, resolution, content, worktreePath ?? undefined);
       setResolvedPaths((prev) => new Set(prev).add(path));
       setEditing(false);
       setInteractiveMode(false);
@@ -73,34 +76,36 @@ export function ConflictsTab({ repoPath, sourceBranch, targetBranch, onRefreshPr
     } finally {
       setResolving(null);
     }
-  }, [repoPath, showToast]);
+  }, [repoPath, worktreePath, showToast]);
 
   const handleComplete = useCallback(async () => {
     setPhase('completing');
     setError(null);
     try {
-      await completeMerge(repoPath, commitMessage || undefined);
+      await completeMerge(repoPath, commitMessage || undefined, worktreePath ?? undefined);
       setPhase('done');
+      setWorktreePath(null);
       showToast('Merge committed and pushed!');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setPhase('conflicts');
     }
-  }, [repoPath, commitMessage, showToast]);
+  }, [repoPath, commitMessage, worktreePath, showToast]);
 
   const handleAbort = useCallback(async () => {
     try {
-      await abortMerge(repoPath);
+      await abortMerge(repoPath, worktreePath ?? undefined);
       setPhase('idle');
       setFiles([]);
       setResolvedPaths(new Set());
       setSelectedFile(null);
       setError(null);
+      setWorktreePath(null);
       showToast('Merge aborted.');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Abort failed');
     }
-  }, [repoPath, showToast]);
+  }, [repoPath, worktreePath, showToast]);
 
   if (!repoPath) {
     return (

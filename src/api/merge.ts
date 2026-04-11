@@ -2,6 +2,7 @@ export interface MergeStartResult {
   status: 'clean' | 'conflicts' | 'error';
   conflicts?: string[];
   message?: string;
+  worktreePath?: string;
 }
 
 export interface ConflictFile {
@@ -34,8 +35,8 @@ export async function startMerge(
   return postJson('/git/merge/start', { repoPath, sourceBranch, targetBranch });
 }
 
-export async function getConflicts(repoPath: string): Promise<ConflictsResult> {
-  return postJson('/git/merge/conflicts', { repoPath });
+export async function getConflicts(repoPath: string, worktreePath?: string): Promise<ConflictsResult> {
+  return postJson('/git/merge/conflicts', { repoPath, worktreePath });
 }
 
 export async function resolveFile(
@@ -43,17 +44,19 @@ export async function resolveFile(
   filePath: string,
   resolution: 'ours' | 'theirs' | 'manual',
   content?: string,
+  worktreePath?: string,
 ): Promise<void> {
-  await postJson('/git/merge/resolve-file', { repoPath, filePath, resolution, content });
+  await postJson('/git/merge/resolve-file', { repoPath, filePath, resolution, content, worktreePath });
 }
 
 export async function completeMerge(
   repoPath: string,
   commitMessage?: string,
+  worktreePath?: string,
 ): Promise<void> {
-  await postJson('/git/merge/complete', { repoPath, commitMessage });
+  await postJson('/git/merge/complete', { repoPath, commitMessage, worktreePath });
 }
 
-export async function abortMerge(repoPath: string): Promise<void> {
-  await postJson('/git/merge/abort', { repoPath });
+export async function abortMerge(repoPath: string, worktreePath?: string): Promise<void> {
+  await postJson('/git/merge/abort', { repoPath, worktreePath });
 }

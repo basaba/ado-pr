@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { getAzAccessToken } from './az-token';
+import { createWorktree, removeWorktree } from './git-worktree';
 
 // node-pty's prebuilt spawn-helper may lack +x after npm install on macOS.
 try {
@@ -77,6 +78,8 @@ export function copilotPlugin(): Plugin {
         let ptyProcess: ReturnType<Awaited<ReturnType<typeof loadPty>>['spawn']> | null = null;
         let initialized = false;
         let mcpConfigPath: string | null = null;
+        let sessionRepoPath: string | null = null;
+        let sessionWorktreePath: string | null = null;
 
         const cleanupMcpConfig = () => {
           if (mcpConfigPath) {
@@ -97,16 +100,30 @@ export function copilotPlugin(): Plugin {
                 adoOrg?: string;
                 adoProject?: string;
                 repoPath?: string;
+                sourceBranch?: string;
                 cols?: number;
                 rows?: number;
               };
               initialized = true;
+              sessionRepoPath = config.repoPath ?? null;
 
               const pty = await loadPty();
               const copilotArgs: string[] = ['--allow-all'];
-              const cwd = config.repoPath || process.cwd();
+              let cwd = config.repoPath || process.cwd();
 
-              if (config.repoPath) {
+              // Create an isolated worktree if both repoPath and sourceBranch are provided
+              if (config.repoPath && config.sourceBranch) {
+                try {
+                  sessionWorktreePath = await createWorktree(config.repoPath, config.sourceBranch);
+                  cwd = sessionWorktreePath;
+                  copilotArgs.push('--add-dir', sessionWorktreePath);
+                } catch {
+                  // Fallback: use repoPath directly
+                  if (config.repoPath) {
+                    copilotArgs.push('--add-dir', config.repoPath);
+                  }
+                }
+              } else if (config.repoPath) {
                 copilotArgs.push('--add-dir', config.repoPath);
               }
 
@@ -216,6 +233,11 @@ export function copilotPlugin(): Plugin {
             ptyProcess = null;
           }
           cleanupMcpConfig();
+          // Clean up the copilot worktree if one was created
+          if (sessionWorktreePath && sessionRepoPath) {
+            removeWorktree(sessionRepoPath, sessionWorktreePath).catch(() => {});
+            sessionWorktreePath = null;
+          }
         });
       });
     },

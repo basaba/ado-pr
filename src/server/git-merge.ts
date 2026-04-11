@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { execFile as execFileCb } from 'node:child_process';
 import { writeFile as writeFileCb } from 'node:fs';
 import { promisify } from 'node:util';
+import { createWorktree, removeWorktree, cleanupStaleWorktrees } from './git-worktree';
 
 const execFile = promisify(execFileCb);
 const writeFile = promisify(writeFileCb);
@@ -39,7 +40,24 @@ function branchName(ref: string): string {
   return ref.replace(/^refs\/heads\//, '');
 }
 
+interface MergeSession {
+  worktreePath: string;
+  sourceBranch: string;
+}
+
+/** Active merge sessions keyed by repoPath */
+const activeMerges = new Map<string, MergeSession>();
+
+/** Resolve the working directory for a merge operation */
+function resolveMergeCwd(repoPath: string, worktreePath?: string): string {
+  if (worktreePath) return worktreePath;
+  const session = activeMerges.get(repoPath);
+  return session?.worktreePath ?? repoPath;
+}
+
 export function gitMergePlugin(): Plugin {
+  cleanupStaleWorktrees();
+
   return {
     name: 'git-merge',
     configureServer(server) {
@@ -53,23 +71,41 @@ export function gitMergePlugin(): Plugin {
             sourceBranch: string;
             targetBranch: string;
           };
-          const cwd = body.repoPath;
+          const repoPath = body.repoPath;
           const source = branchName(body.sourceBranch);
           const target = branchName(body.targetBranch);
 
-          // Fetch latest
-          await git(cwd, ['fetch', 'origin']);
+          if (activeMerges.has(repoPath)) {
+            json(res, 409, { error: 'A merge is already in progress for this repository. Abort it first.' });
+            return;
+          }
 
-          // Checkout source branch
-          await git(cwd, ['checkout', source]);
+          let cwd: string;
+          let worktreePath: string | null = null;
 
-          // Pull latest source
-          await gitAllowFailure(cwd, ['pull', 'origin', source]);
+          // Try creating an isolated worktree so the user's checkout is untouched
+          try {
+            worktreePath = await createWorktree(repoPath, source);
+            cwd = worktreePath;
+          } catch {
+            // Fallback: operate directly on the repo (pre-worktree behavior)
+            cwd = repoPath;
+            await git(cwd, ['fetch', 'origin']);
+            await git(cwd, ['checkout', source]);
+            await gitAllowFailure(cwd, ['pull', 'origin', source]);
+          }
 
           // Attempt merge
           const mergeResult = await gitAllowFailure(cwd, ['merge', `origin/${target}`, '--no-edit']);
 
           if (mergeResult.code === 0) {
+            // Clean merge — push and clean up
+            if (worktreePath) {
+              await git(cwd, ['push', 'origin', `HEAD:refs/heads/${source}`]);
+              await removeWorktree(repoPath, worktreePath);
+            } else {
+              await git(cwd, ['push', 'origin', 'HEAD']);
+            }
             json(res, 200, { status: 'clean', message: 'Merge completed without conflicts.' });
             return;
           }
@@ -79,9 +115,15 @@ export function gitMergePlugin(): Plugin {
           const conflicts = conflictFiles.trim().split('\n').filter(Boolean);
 
           if (conflicts.length > 0) {
-            json(res, 200, { status: 'conflicts', conflicts });
+            if (worktreePath) {
+              activeMerges.set(repoPath, { worktreePath, sourceBranch: source });
+            }
+            json(res, 200, { status: 'conflicts', conflicts, worktreePath });
           } else {
-            // Merge failed but no conflicts — some other error
+            // Merge failed but no conflicts — some other error; clean up
+            if (worktreePath) {
+              await removeWorktree(repoPath, worktreePath);
+            }
             json(res, 200, { status: 'error', message: mergeResult.stderr || mergeResult.stdout });
           }
         } catch (err) {
@@ -93,8 +135,11 @@ export function gitMergePlugin(): Plugin {
       server.middlewares.use('/git/merge/conflicts', async (req, res) => {
         if (req.method !== 'POST') { json(res, 405, { error: 'POST required' }); return; }
         try {
-          const body = JSON.parse(await readBody(req)) as { repoPath: string };
-          const cwd = body.repoPath;
+          const body = JSON.parse(await readBody(req)) as {
+            repoPath: string;
+            worktreePath?: string;
+          };
+          const cwd = resolveMergeCwd(body.repoPath, body.worktreePath);
 
           const { stdout: conflictList } = await gitAllowFailure(cwd, ['diff', '--name-only', '--diff-filter=U']);
           const paths = conflictList.trim().split('\n').filter(Boolean);
@@ -125,11 +170,12 @@ export function gitMergePlugin(): Plugin {
         try {
           const body = JSON.parse(await readBody(req)) as {
             repoPath: string;
+            worktreePath?: string;
             filePath: string;
             resolution: 'ours' | 'theirs' | 'manual';
             content?: string;
           };
-          const cwd = body.repoPath;
+          const cwd = resolveMergeCwd(body.repoPath, body.worktreePath);
 
           if (body.resolution === 'ours') {
             await git(cwd, ['checkout', '--ours', body.filePath]);
@@ -156,9 +202,11 @@ export function gitMergePlugin(): Plugin {
         try {
           const body = JSON.parse(await readBody(req)) as {
             repoPath: string;
+            worktreePath?: string;
             commitMessage?: string;
           };
-          const cwd = body.repoPath;
+          const session = activeMerges.get(body.repoPath);
+          const cwd = resolveMergeCwd(body.repoPath, body.worktreePath);
 
           // Commit — use provided message or let git use default merge message
           if (body.commitMessage) {
@@ -167,8 +215,14 @@ export function gitMergePlugin(): Plugin {
             await git(cwd, ['commit', '--no-edit']);
           }
 
-          // Push
-          await git(cwd, ['push', 'origin', 'HEAD']);
+          // Push — use explicit refspec when in a worktree (detached HEAD)
+          if (session?.worktreePath) {
+            await git(cwd, ['push', 'origin', `HEAD:refs/heads/${session.sourceBranch}`]);
+            await removeWorktree(body.repoPath, session.worktreePath);
+            activeMerges.delete(body.repoPath);
+          } else {
+            await git(cwd, ['push', 'origin', 'HEAD']);
+          }
 
           json(res, 200, { completed: true });
         } catch (err) {
@@ -180,8 +234,20 @@ export function gitMergePlugin(): Plugin {
       server.middlewares.use('/git/merge/abort', async (req, res) => {
         if (req.method !== 'POST') { json(res, 405, { error: 'POST required' }); return; }
         try {
-          const body = JSON.parse(await readBody(req)) as { repoPath: string };
-          await git(body.repoPath, ['merge', '--abort']);
+          const body = JSON.parse(await readBody(req)) as {
+            repoPath: string;
+            worktreePath?: string;
+          };
+          const session = activeMerges.get(body.repoPath);
+
+          if (session?.worktreePath) {
+            // Simply remove the worktree — no need to git merge --abort
+            await removeWorktree(body.repoPath, session.worktreePath);
+            activeMerges.delete(body.repoPath);
+          } else {
+            await git(body.repoPath, ['merge', '--abort']);
+          }
+
           json(res, 200, { aborted: true });
         } catch (err) {
           json(res, 500, { error: err instanceof Error ? err.message : String(err) });
