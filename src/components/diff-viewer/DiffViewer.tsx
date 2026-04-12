@@ -820,8 +820,8 @@ export function DiffViewer({
               <tbody>
                 {(viewMode === 'original' ? oldContent : newContent).split('\n').map((line, i) => (
                   <tr key={i} className="hover:brightness-95">
-                    <td className="text-right px-2 py-0 select-none bg-gray-50 dark:bg-gray-800/50 text-gray-400">{i + 1}</td>
-                    <td className="px-3 py-0 whitespace-pre">{renderHighlighted(line)}</td>
+                    <td className="text-right px-2 py-0 select-none bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500">{i + 1}</td>
+                    <td className="px-3 py-0 whitespace-pre text-gray-800 dark:text-gray-200">{renderHighlighted(line)}</td>
                   </tr>
                 ))}
               </tbody>
