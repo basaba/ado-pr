@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { diffLines } from 'diff';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment, highlightLine } from '../../utils';
 import { MarkdownContent, MentionTextarea, ConfirmDialog } from '../common';
@@ -38,40 +39,31 @@ export interface DiffLine {
 const CONTEXT_LINES = 3;
 
 export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
-  const oldLines = oldText.split('\n');
-  const newLines = newText.split('\n');
-
-  const m = oldLines.length;
-  const n = newLines.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] =
-        oldLines[i - 1] === newLines[j - 1]
-          ? dp[i - 1][j - 1] + 1
-          : Math.max(dp[i - 1][j], dp[i][j - 1]);
-    }
-  }
-
+  const changes = diffLines(oldText, newText);
   const result: DiffLine[] = [];
-  let i = m, j = n;
-  const stack: DiffLine[] = [];
+  let oldLineNum = 1;
+  let newLineNum = 1;
 
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
-      stack.push({ type: 'unchanged', oldLineNum: i, newLineNum: j, content: oldLines[i - 1] });
-      i--; j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      stack.push({ type: 'added', oldLineNum: null, newLineNum: j, content: newLines[j - 1] });
-      j--;
+  for (const change of changes) {
+    // diffLines keeps trailing newlines in value; split and drop the trailing empty element
+    const lines = change.value.split('\n');
+    if (lines[lines.length - 1] === '') lines.pop();
+
+    if (change.added) {
+      for (const line of lines) {
+        result.push({ type: 'added', oldLineNum: null, newLineNum: newLineNum++, content: line });
+      }
+    } else if (change.removed) {
+      for (const line of lines) {
+        result.push({ type: 'removed', oldLineNum: oldLineNum++, newLineNum: null, content: line });
+      }
     } else {
-      stack.push({ type: 'removed', oldLineNum: i, newLineNum: null, content: oldLines[i - 1] });
-      i--;
+      for (const line of lines) {
+        result.push({ type: 'unchanged', oldLineNum: oldLineNum++, newLineNum: newLineNum++, content: line });
+      }
     }
   }
 
-  while (stack.length) result.push(stack.pop()!);
   return result;
 }
 
