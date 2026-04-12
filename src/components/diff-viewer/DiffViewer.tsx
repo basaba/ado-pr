@@ -319,6 +319,11 @@ export function DiffViewer({
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [containerWidth, setContainerWidth] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [splitRatio, setSplitRatio] = useLocalStorageState<string>('ado-pr-diff-split-ratio', '0.5');
+  const isDragging = useRef(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const leftPaneRef = useRef<HTMLDivElement>(null);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
   const [showGoToLine, setShowGoToLine] = useState(false);
   const [goToLineInput, setGoToLineInput] = useState('');
   const goToLineRef = useRef<HTMLInputElement>(null);
@@ -343,6 +348,48 @@ export function DiffViewer({
 
   // Width for comment/thread overlays: container width minus gutter columns (~6rem)
   const commentBoxWidth = containerWidth > 0 ? `${containerWidth - 10}px` : '100%';
+
+  // Draggable separator for split view
+  const handleSeparatorMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const startX = e.clientX;
+    const containerRect = container.getBoundingClientRect();
+    const startRatio = parseFloat(splitRatio);
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const dx = ev.clientX - startX;
+      const newRatio = Math.min(0.8, Math.max(0.2, startRatio + dx / containerRect.width));
+      setSplitRatio(String(newRatio));
+    };
+    const onMouseUp = () => {
+      isDragging.current = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [splitRatio, setSplitRatio]);
+
+  // Synchronized vertical scrolling between split panes
+  const syncingScroll = useRef(false);
+  const handleSplitScroll = useCallback((source: 'left' | 'right') => {
+    if (syncingScroll.current) return;
+    syncingScroll.current = true;
+    const src = source === 'left' ? leftPaneRef.current : rightPaneRef.current;
+    const dst = source === 'left' ? rightPaneRef.current : leftPaneRef.current;
+    if (src && dst) {
+      dst.scrollTop = src.scrollTop;
+    }
+    requestAnimationFrame(() => { syncingScroll.current = false; });
+  }, []);
 
   const diffLines = useMemo(() => detectMoves(computeDiffLines(oldContent, newContent)), [oldContent, newContent]);
 
@@ -576,49 +623,105 @@ export function DiffViewer({
     );
   };
 
-  const renderSplitDiffLine = (idx: number) => {
+  const renderSplitLeftLine = (idx: number) => {
+    const pair = splitPairs[idx];
+    const leftType = pair.left?.type ?? 'unchanged';
+    const leftEmpty = !pair.left;
+    const leftMoved = pair.left?.moveId != null;
+    const emptyBg = 'bg-gray-100 dark:bg-gray-800';
+    const leftPrefix = leftMoved ? (pair.left?.moveSide === 'source' ? '↰' : '↳') : pair.left?.type === 'removed' ? '-' : ' ';
+    const leftGutter = leftEmpty ? emptyBg : leftMoved ? (moveGutterColors[leftType] ?? gutterColors[leftType]) : gutterColors[leftType];
+    const leftBg = leftEmpty ? emptyBg : leftMoved ? (moveLineColors[leftType] ?? lineColors[leftType]) : lineColors[leftType];
+    const leftText = leftMoved ? (moveLineTextColors[leftType] ?? lineTextColors[leftType]) : lineTextColors[leftType];
+
+    return (
+      <tr key={idx} className="hover:brightness-95">
+        <td className={`text-right px-2 py-0 select-none ${leftGutter}`}>{pair.left?.oldLineNum ?? ''}</td>
+        <td className={`px-3 py-0 whitespace-pre ${leftBg} ${leftText}`} title={leftMoved ? `Moved code (block ${pair.left?.moveId})` : undefined}>
+          {pair.left && (
+            <>
+              <span className="select-none opacity-50 mr-1">{leftPrefix}</span>
+              {renderHighlighted(pair.left.content)}
+            </>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
+  const renderSplitRightLine = (idx: number) => {
     const pair = splitPairs[idx];
     const newLineNum = pair.right?.newLineNum ?? null;
     const lineThreads = newLineNum ? threadsByLine[newLineNum] || [] : [];
+    const rightType = pair.right?.type ?? 'unchanged';
+    const rightEmpty = !pair.right;
+    const rightMoved = pair.right?.moveId != null;
+    const emptyBg = 'bg-gray-100 dark:bg-gray-800';
+    const rightPrefix = rightMoved ? (pair.right?.moveSide === 'source' ? '↰' : '↳') : pair.right?.type === 'added' ? '+' : ' ';
+    const rightGutter = rightEmpty ? emptyBg : rightMoved ? (moveGutterColors[rightType] ?? gutterColors[rightType]) : gutterColors[rightType];
+    const rightBg = rightEmpty ? emptyBg : rightMoved ? (moveLineColors[rightType] ?? lineColors[rightType]) : lineColors[rightType];
+    const rightText = rightMoved ? (moveLineTextColors[rightType] ?? lineTextColors[rightType]) : lineTextColors[rightType];
 
     return (
-      <SplitDiffLineRow
-        key={idx}
-        pair={pair}
-        lineColors={lineColors}
-        lineTextColors={lineTextColors}
-        gutterColors={gutterColors}
-        moveLineColors={moveLineColors}
-        moveLineTextColors={moveLineTextColors}
-        moveGutterColors={moveGutterColors}
-        lineThreads={lineThreads}
-        isCommentOpen={commentLine != null && commentLine === newLineNum}
-        onGutterClick={() => {
-          if (newLineNum) {
-            setCommentLine(commentLine === newLineNum ? null : newLineNum);
-            setCommentText('');
-          }
-        }}
-        commentText={commentText}
-        onCommentTextChange={setCommentText}
-        sending={sending}
-        onSubmitComment={handleSubmitComment}
-        onCancelComment={() => { setCommentLine(null); setCommentText(''); }}
-        onReply={onReply}
-        onSetStatus={onSetStatus}
-        onDeleteComment={onDeleteComment}
-        onToggleLike={onToggleLike}
-        usersMap={usersMap}
-        currentUserId={currentUserId}
-        isPrOwner={isPrOwner}
-        hiddenThreadIds={hiddenThreadIds}
-        onToggleHideThread={onToggleHideThread}
-        knownUsers={knownUsers}
-        onMentionInserted={onMentionInserted}
-        autoExpand={autoExpandLine != null && autoExpandLine === newLineNum}
-        onAutoExpandHandled={() => setAutoExpandLine(null)}
-        renderHighlighted={renderHighlighted}
-      />
+      <tr key={idx} className="hover:brightness-95" data-line={pair.right?.newLineNum ?? undefined}>
+        <td className={`text-right px-2 py-0 select-none ${rightGutter}`}>{pair.right?.newLineNum ?? ''}</td>
+        <td
+          className={`text-center px-1 py-0 select-none ${rightGutter} ${lineThreads.length > 0 || rightEmpty ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
+          onClick={lineThreads.length > 0 || rightEmpty ? undefined : () => {
+            if (newLineNum) {
+              setCommentLine(commentLine === newLineNum ? null : newLineNum);
+              setCommentText('');
+            }
+          }}
+          title={lineThreads.length > 0 || rightEmpty ? undefined : 'Add comment'}
+        >
+          {lineThreads.length > 0 ? (
+            <CommentIndicator
+              lineThreads={lineThreads}
+              onReply={onReply}
+              onSetStatus={onSetStatus}
+              onDeleteComment={onDeleteComment}
+              onToggleLike={onToggleLike}
+              usersMap={usersMap}
+              currentUserId={currentUserId}
+              isPrOwner={isPrOwner}
+              hiddenThreadIds={hiddenThreadIds}
+              onToggleHideThread={onToggleHideThread}
+              knownUsers={knownUsers}
+              onMentionInserted={onMentionInserted}
+              autoExpand={autoExpandLine != null && autoExpandLine === newLineNum}
+              onAutoExpandHandled={() => setAutoExpandLine(null)}
+            />
+          ) : (
+            pair.right?.newLineNum ? (
+              <AddCommentPopover
+                isOpen={commentLine != null && commentLine === newLineNum}
+                onGutterClick={() => {
+                  if (newLineNum) {
+                    setCommentLine(commentLine === newLineNum ? null : newLineNum);
+                    setCommentText('');
+                  }
+                }}
+                commentText={commentText}
+                onCommentTextChange={setCommentText}
+                sending={sending}
+                onSubmitComment={handleSubmitComment}
+                onCancelComment={() => { setCommentLine(null); setCommentText(''); }}
+                knownUsers={knownUsers}
+                onMentionInserted={onMentionInserted}
+              />
+            ) : ''
+          )}
+        </td>
+        <td className={`px-3 py-0 whitespace-pre ${rightBg} ${rightText}`} title={rightMoved ? `Moved code (block ${pair.right?.moveId})` : undefined}>
+          {pair.right && (
+            <>
+              <span className="select-none opacity-50 mr-1">{rightPrefix}</span>
+              {renderHighlighted(pair.right.content)}
+            </>
+          )}
+        </td>
+      </tr>
     );
   };
 
@@ -636,14 +739,7 @@ export function DiffViewer({
           }
           return (
             <tr key={`sep-${hunkIdx}`} className="select-none cursor-pointer group" onClick={() => setExpandedSections((prev) => new Set(prev).add(hunkIdx))}>
-              {colSpan <= 4 ? (
-                <>
-                  <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1 w-[1px]">↕</td>
-                  <td colSpan={2} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900" />
-                </>
-              ) : (
-                <td colSpan={colSpan} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1">↕</td>
-              )}
+              <td colSpan={colSpan} className="bg-blue-50 dark:bg-blue-900/30 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 text-center text-blue-400 text-lg px-1 py-1">↕</td>
             </tr>
           );
         });
@@ -713,25 +809,60 @@ export function DiffViewer({
         )}
 
         {viewMode === 'split' ? (
-          <table className="w-full border-collapse table-fixed">
-            <colgroup>
-              <col style={{ width: 40 }} />
-              <col />
-              <col style={{ width: 1 }} />
-              <col style={{ width: 40 }} />
-              <col style={{ width: 20 }} />
-              <col />
-            </colgroup>
-            <tbody>
-              {renderHunks(splitHunks, renderSplitDiffLine, 6)}
-            </tbody>
-          </table>
+          <div className="flex" ref={splitContainerRef}>
+            {/* Left pane (old) */}
+            <div
+              ref={leftPaneRef}
+              className="overflow-x-auto overflow-y-auto"
+              style={{ width: `calc(${parseFloat(splitRatio) * 100}% - 3px)` }}
+              onScroll={() => handleSplitScroll('left')}
+            >
+              <table className="border-collapse" style={{ minWidth: '100%' }}>
+                <colgroup>
+                  <col style={{ width: 40 }} />
+                  <col />
+                </colgroup>
+                <tbody>
+                  {renderHunks(splitHunks, (idx) => renderSplitLeftLine(idx), 2)}
+                </tbody>
+              </table>
+            </div>
+            {/* Draggable separator */}
+            <div
+              className="flex-shrink-0 w-[5px] bg-gray-300 dark:bg-gray-600 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-500 active:bg-blue-500 dark:active:bg-blue-400 transition-colors relative group"
+              onMouseDown={handleSeparatorMouseDown}
+              onDoubleClick={() => setSplitRatio('0.5')}
+              title="Drag to resize · Double-click to reset"
+            >
+              <div className="absolute inset-y-0 -left-1 -right-1" />
+            </div>
+            {/* Right pane (new) */}
+            <div
+              ref={rightPaneRef}
+              className="overflow-x-auto overflow-y-auto"
+              style={{ width: `calc(${(1 - parseFloat(splitRatio)) * 100}% - 2px)` }}
+              onScroll={() => handleSplitScroll('right')}
+            >
+              <table className="border-collapse" style={{ minWidth: '100%' }}>
+                <colgroup>
+                  <col style={{ width: 40 }} />
+                  <col style={{ width: 20 }} />
+                  <col />
+                </colgroup>
+                <tbody>
+                  {renderHunks(splitHunks, (idx) => renderSplitRightLine(idx), 3)}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
-          <table className="w-full border-collapse">
-            <tbody>
-              {renderHunks(hunks, renderDiffLine, 4)}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="border-collapse" style={{ minWidth: '100%' }}>
+              <tbody>
+                {renderHunks(hunks, renderDiffLine, 4)}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {unmatchedThreads.length > 0 && (
@@ -841,134 +972,6 @@ function DiffLineRow({
       <td className={`px-3 py-0 whitespace-pre ${textColor}`}>
         <span className="select-none opacity-50 mr-1">{prefix}</span>
         {renderHighlighted(line.content)}
-      </td>
-    </tr>
-  );
-}
-
-function SplitDiffLineRow({
-  pair, lineColors, lineTextColors, gutterColors, moveLineColors, moveLineTextColors, moveGutterColors, lineThreads,
-  isCommentOpen, onGutterClick, commentText, onCommentTextChange,
-  sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
-  usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
-  autoExpand, onAutoExpandHandled, renderHighlighted,
-}: {
-  pair: SplitPair;
-  lineColors: Record<string, string>;
-  lineTextColors: Record<string, string>;
-  gutterColors: Record<string, string>;
-  moveLineColors: Record<string, string>;
-  moveLineTextColors: Record<string, string>;
-  moveGutterColors: Record<string, string>;
-  lineThreads: PullRequestThread[];
-  isCommentOpen: boolean;
-  onGutterClick: () => void;
-  commentText: string;
-  onCommentTextChange: (v: string) => void;
-  sending: boolean;
-  onSubmitComment: () => void;
-  onCancelComment: () => void;
-  onReply: (threadId: number, content: string) => Promise<void>;
-  onSetStatus: (threadId: number, status: ThreadStatus) => Promise<void>;
-  onDeleteComment?: (threadId: number, commentId: number) => Promise<void>;
-  onToggleLike?: (threadId: number, commentId: number, currentUserId: string) => Promise<void>;
-  usersMap?: Record<string, string>;
-  currentUserId?: string;
-  isPrOwner?: boolean;
-  hiddenThreadIds?: Set<number>;
-  onToggleHideThread?: (threadId: number) => void;
-  knownUsers?: IdentitySearchResult[];
-  onMentionInserted?: (user: IdentitySearchResult) => void;
-  autoExpand?: boolean;
-  onAutoExpandHandled?: () => void;
-  renderHighlighted: (content: string) => React.ReactNode;
-}) {
-  const leftType = pair.left?.type ?? 'unchanged';
-  const rightType = pair.right?.type ?? 'unchanged';
-  const leftEmpty = !pair.left;
-  const rightEmpty = !pair.right;
-  const leftMoved = pair.left?.moveId != null;
-  const rightMoved = pair.right?.moveId != null;
-
-  const emptyBg = 'bg-gray-100 dark:bg-gray-800';
-  const leftPrefix = leftMoved ? (pair.left?.moveSide === 'source' ? '↰' : '↳') : pair.left?.type === 'removed' ? '-' : ' ';
-  const rightPrefix = rightMoved ? (pair.right?.moveSide === 'source' ? '↰' : '↳') : pair.right?.type === 'added' ? '+' : ' ';
-
-  const leftGutter = leftEmpty ? emptyBg : leftMoved ? (moveGutterColors[leftType] ?? gutterColors[leftType]) : gutterColors[leftType];
-  const leftBg = leftEmpty ? emptyBg : leftMoved ? (moveLineColors[leftType] ?? lineColors[leftType]) : lineColors[leftType];
-  const leftText = leftMoved ? (moveLineTextColors[leftType] ?? lineTextColors[leftType]) : lineTextColors[leftType];
-  const rightGutter = rightEmpty ? emptyBg : rightMoved ? (moveGutterColors[rightType] ?? gutterColors[rightType]) : gutterColors[rightType];
-  const rightBg = rightEmpty ? emptyBg : rightMoved ? (moveLineColors[rightType] ?? lineColors[rightType]) : lineColors[rightType];
-  const rightText = rightMoved ? (moveLineTextColors[rightType] ?? lineTextColors[rightType]) : lineTextColors[rightType];
-
-  return (
-    <tr className="hover:brightness-95" data-line={pair.right?.newLineNum ?? undefined}>
-      {/* Left: old line number */}
-      <td className={`text-right px-2 py-0 select-none ${leftGutter}`}>
-        {pair.left?.oldLineNum ?? ''}
-      </td>
-      {/* Left: old content */}
-      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${leftBg} ${leftText}`} title={leftMoved ? `Moved code (block ${pair.left?.moveId})` : undefined}>
-        {pair.left && (
-          <>
-            <span className="select-none opacity-50 mr-1">{leftPrefix}</span>
-            {renderHighlighted(pair.left.content)}
-          </>
-        )}
-      </td>
-      {/* Divider */}
-      <td className="bg-gray-300 dark:bg-gray-600" />
-      {/* Right: new line number */}
-      <td className={`text-right px-2 py-0 select-none ${rightGutter}`}>
-        {pair.right?.newLineNum ?? ''}
-      </td>
-      {/* Right: comment gutter */}
-      <td
-        className={`text-center px-1 py-0 select-none ${rightGutter} ${lineThreads.length > 0 || rightEmpty ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
-        onClick={lineThreads.length > 0 || rightEmpty ? undefined : onGutterClick}
-        title={lineThreads.length > 0 || rightEmpty ? undefined : 'Add comment'}
-      >
-        {lineThreads.length > 0 ? (
-          <CommentIndicator
-            lineThreads={lineThreads}
-            onReply={onReply}
-            onSetStatus={onSetStatus}
-            onDeleteComment={onDeleteComment}
-            onToggleLike={onToggleLike}
-            usersMap={usersMap}
-            currentUserId={currentUserId}
-            isPrOwner={isPrOwner}
-            hiddenThreadIds={hiddenThreadIds}
-            onToggleHideThread={onToggleHideThread}
-            knownUsers={knownUsers}
-            onMentionInserted={onMentionInserted}
-            autoExpand={autoExpand}
-            onAutoExpandHandled={onAutoExpandHandled}
-          />
-        ) : (
-          pair.right?.newLineNum ? (
-            <AddCommentPopover
-              isOpen={isCommentOpen}
-              onGutterClick={onGutterClick}
-              commentText={commentText}
-              onCommentTextChange={onCommentTextChange}
-              sending={sending}
-              onSubmitComment={onSubmitComment}
-              onCancelComment={onCancelComment}
-              knownUsers={knownUsers}
-              onMentionInserted={onMentionInserted}
-            />
-          ) : ''
-        )}
-      </td>
-      {/* Right: new content */}
-      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${rightBg} ${rightText}`} title={rightMoved ? `Moved code (block ${pair.right?.moveId})` : undefined}>
-        {pair.right && (
-          <>
-            <span className="select-none opacity-50 mr-1">{rightPrefix}</span>
-            {renderHighlighted(pair.right.content)}
-          </>
-        )}
       </td>
     </tr>
   );
