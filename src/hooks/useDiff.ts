@@ -36,10 +36,12 @@ export function useDiff(repoId: string, prId: number) {
       if (!iterations.length) return { oldContent: '', newContent: '' };
       const lastIter = iterations[iterations.length - 1];
 
-      // Skip fetching the side that doesn't exist for add/delete changes
+      // Use the merge base (commonRefCommit) as the old side, matching ADO's web UI.
+      // targetRefCommit is the target branch tip which may include changes
+      // not related to this PR, causing false removals in the diff.
       const oldContent = changeType === 'add'
         ? ''
-        : await getFileContent(repoId, path, lastIter.targetRefCommit.commitId);
+        : await getFileContent(repoId, path, lastIter.commonRefCommit.commitId);
       const newContent = changeType === 'delete'
         ? ''
         : await getFileContent(repoId, path, lastIter.sourceRefCommit.commitId);

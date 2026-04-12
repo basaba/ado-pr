@@ -98,6 +98,7 @@ export interface PullRequestIteration {
   createdDate: string;
   sourceRefCommit: { commitId: string };
   targetRefCommit: { commitId: string };
+  commonRefCommit: { commitId: string };
 }
 
 export interface IterationChange {
