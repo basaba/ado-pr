@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { diffLines } from 'diff';
+import { histogramDiff } from 'histogram-diff';
 import type { PullRequestThread, ThreadStatus } from '../../types';
 import { formatDate, isTextComment, highlightLine } from '../../utils';
 import { MarkdownContent, MentionTextarea, ConfirmDialog } from '../common';
@@ -39,29 +39,38 @@ export interface DiffLine {
 const CONTEXT_LINES = 3;
 
 export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
-  const changes = diffLines(oldText, newText, { minimal: true } as Parameters<typeof diffLines>[2]);
+  const oldLines = oldText.split('\n');
+  const newLines = newText.split('\n');
+  const regions = histogramDiff(oldLines, newLines);
   const result: DiffLine[] = [];
-  let oldLineNum = 1;
-  let newLineNum = 1;
 
-  for (const change of changes) {
-    // diffLines keeps trailing newlines in value; split and drop the trailing empty element
-    const lines = change.value.split('\n');
-    if (lines[lines.length - 1] === '') lines.pop();
+  let oldIdx = 0;
+  let newIdx = 0;
 
-    if (change.added) {
-      for (const line of lines) {
-        result.push({ type: 'added', oldLineNum: null, newLineNum: newLineNum++, content: line });
-      }
-    } else if (change.removed) {
-      for (const line of lines) {
-        result.push({ type: 'removed', oldLineNum: oldLineNum++, newLineNum: null, content: line });
-      }
-    } else {
-      for (const line of lines) {
-        result.push({ type: 'unchanged', oldLineNum: oldLineNum++, newLineNum: newLineNum++, content: line });
-      }
+  for (const [aLo, aHi, bLo, bHi] of regions) {
+    // Unchanged lines before this diff region
+    while (oldIdx < aLo && newIdx < bLo) {
+      result.push({ type: 'unchanged', oldLineNum: oldIdx + 1, newLineNum: newIdx + 1, content: oldLines[oldIdx] });
+      oldIdx++;
+      newIdx++;
     }
+    // Removed lines (from old file)
+    for (let i = aLo; i < aHi; i++) {
+      result.push({ type: 'removed', oldLineNum: i + 1, newLineNum: null, content: oldLines[i] });
+    }
+    // Added lines (from new file)
+    for (let i = bLo; i < bHi; i++) {
+      result.push({ type: 'added', oldLineNum: null, newLineNum: i + 1, content: newLines[i] });
+    }
+    oldIdx = aHi;
+    newIdx = bHi;
+  }
+
+  // Trailing unchanged lines
+  while (oldIdx < oldLines.length && newIdx < newLines.length) {
+    result.push({ type: 'unchanged', oldLineNum: oldIdx + 1, newLineNum: newIdx + 1, content: oldLines[oldIdx] });
+    oldIdx++;
+    newIdx++;
   }
 
   return result;
