@@ -293,17 +293,22 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
       <div className="flex-1 min-w-0" ref={contentRef}>
         {selectedFile && selectedChange ? (
           <div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-              <ScrollingPath text={selectedFile} />
-              <Badge
-                text={changeTypeLabel(selectedChange.changeType)}
-                color={changeTypeBadgeColor(selectedChange.changeType)}
-              />
-              {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
-              {fileThreads.length > 0 && (
-                <span className="text-xs text-blue-600 dark:text-blue-400">💬 {fileThreads.length}</span>
-              )}
-              <DiffViewToggle value={diffView} onChange={setDiffView} />
+            <div className="sticky top-0 z-10 group/toolbar">
+              <div className="h-1 bg-gray-200/50 dark:bg-gray-700/50 group-hover/toolbar:h-auto" />
+              <div className="max-h-0 group-hover/toolbar:max-h-20 overflow-hidden transition-all duration-150 ease-out">
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
+                  <ScrollingPath text={selectedFile} />
+                  <Badge
+                    text={changeTypeLabel(selectedChange.changeType)}
+                    color={changeTypeBadgeColor(selectedChange.changeType)}
+                  />
+                  {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
+                  {fileThreads.length > 0 && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400">💬 {fileThreads.length}</span>
+                  )}
+                  <DiffViewToggle value={diffView} onChange={setDiffView} />
+                </div>
+              </div>
             </div>
             {loadingFile ? (
               <Spinner className="py-10" />
