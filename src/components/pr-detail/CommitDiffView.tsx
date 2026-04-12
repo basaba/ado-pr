@@ -103,6 +103,7 @@ export function CommitDiffView({ repoId, commitId }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const toolbarSentinelRef = useRef<HTMLDivElement>(null);
   const [isToolbarStuck, setIsToolbarStuck] = useState(false);
+  const [toolbarHovered, setToolbarHovered] = useState(false);
 
   useEffect(() => {
     const sentinel = toolbarSentinelRef.current;
@@ -228,12 +229,19 @@ export function CommitDiffView({ repoId, commitId }: Props) {
           <div>
             {/* Sentinel: when this scrolls out of view, the toolbar is "stuck" */}
             <div ref={toolbarSentinelRef} />
+            {isToolbarStuck && (
+              <div
+                className="fixed top-0 left-0 right-0 h-8 z-20"
+                onMouseEnter={() => setToolbarHovered(true)}
+                onMouseLeave={() => setToolbarHovered(false)}
+              />
+            )}
             <div
-              className={`sticky top-0 z-10 transition-all duration-150 ${
-                isToolbarStuck
-                  ? 'opacity-0 hover:opacity-100 h-2 hover:h-auto overflow-hidden hover:overflow-visible'
-                  : ''
+              className={`sticky top-0 z-20 transition-opacity duration-150 ${
+                isToolbarStuck && !toolbarHovered ? 'opacity-0 pointer-events-none h-0' : ''
               }`}
+              onMouseEnter={() => isToolbarStuck && setToolbarHovered(true)}
+              onMouseLeave={() => setToolbarHovered(false)}
             >
               <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
                 <ScrollingPath text={selectedFile} />
