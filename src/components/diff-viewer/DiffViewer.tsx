@@ -39,7 +39,7 @@ export interface DiffLine {
 const CONTEXT_LINES = 3;
 
 export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
-  const changes = diffLines(oldText, newText);
+  const changes = diffLines(oldText, newText, { minimal: true } as Parameters<typeof diffLines>[2]);
   const result: DiffLine[] = [];
   let oldLineNum = 1;
   let newLineNum = 1;

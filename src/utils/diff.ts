@@ -11,7 +11,7 @@ export function generateTextDiff(
   filePath: string,
   contextLines = 3,
 ): string {
-  const patch = createPatch(filePath, oldContent, newContent, '', '', { context: contextLines });
+  const patch = createPatch(filePath, oldContent, newContent, '', '', { context: contextLines, minimal: true } as Parameters<typeof createPatch>[5]);
 
   // createPatch always produces headers; strip the "Index:" and "===" lines
   const lines = patch.split('\n');
