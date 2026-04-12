@@ -42,19 +42,24 @@ export interface DiffLine {
 /** Number of unchanged context lines to show around each change/comment */
 const CONTEXT_LINES = 3;
 
-export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
+export function computeDiffLines(oldText: string, newText: string, ignoreWhitespace = true): DiffLine[] {
   const oldLines = oldText.split('\n');
   const newLines = newText.split('\n');
-  const regions = histogramDiff(oldLines, newLines);
+
+  // When ignoring leading whitespace, diff on trimmed lines then map back to originals.
+  // This matches ADO's server-side diff behavior: re-indented moved code is treated as unchanged.
+  const diffOld = ignoreWhitespace ? oldLines.map(l => l.trimStart()) : oldLines;
+  const diffNew = ignoreWhitespace ? newLines.map(l => l.trimStart()) : newLines;
+  const regions = histogramDiff(diffOld, diffNew);
   const result: DiffLine[] = [];
 
   let oldIdx = 0;
   let newIdx = 0;
 
   for (const [aLo, aHi, bLo, bHi] of regions) {
-    // Unchanged lines before this diff region
+    // Unchanged lines before this diff region (show new-file version for current indentation)
     while (oldIdx < aLo && newIdx < bLo) {
-      result.push({ type: 'unchanged', oldLineNum: oldIdx + 1, newLineNum: newIdx + 1, content: oldLines[oldIdx] });
+      result.push({ type: 'unchanged', oldLineNum: oldIdx + 1, newLineNum: newIdx + 1, content: newLines[newIdx] });
       oldIdx++;
       newIdx++;
     }
@@ -72,7 +77,7 @@ export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
 
   // Trailing unchanged lines
   while (oldIdx < oldLines.length && newIdx < newLines.length) {
-    result.push({ type: 'unchanged', oldLineNum: oldIdx + 1, newLineNum: newIdx + 1, content: oldLines[oldIdx] });
+    result.push({ type: 'unchanged', oldLineNum: oldIdx + 1, newLineNum: newIdx + 1, content: newLines[newIdx] });
     oldIdx++;
     newIdx++;
   }
