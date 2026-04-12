@@ -101,6 +101,19 @@ export function CommitDiffView({ repoId, commitId }: Props) {
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const dragging = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const toolbarSentinelRef = useRef<HTMLDivElement>(null);
+  const [isToolbarStuck, setIsToolbarStuck] = useState(false);
+
+  useEffect(() => {
+    const sentinel = toolbarSentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsToolbarStuck(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [selectedFile]);
 
   const fileTree = useMemo(() => buildFileTree(changes), [changes]);
 
@@ -213,18 +226,23 @@ export function CommitDiffView({ repoId, commitId }: Props) {
       <div className="flex-1 min-w-0" ref={contentRef}>
         {selectedFile && selectedChange ? (
           <div>
-            <div className="sticky top-0 z-10 group/toolbar">
-              <div className="h-1 bg-gray-200/50 dark:bg-gray-700/50 group-hover/toolbar:h-auto" />
-              <div className="max-h-0 group-hover/toolbar:max-h-20 overflow-hidden transition-all duration-150 ease-out">
-                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-                  <ScrollingPath text={selectedFile} />
-                  <Badge
-                    text={changeTypeLabel(selectedChange.changeType)}
-                    color={changeTypeBadgeColor(selectedChange.changeType)}
-                  />
-                  {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
-                  <DiffViewToggle value={diffView} onChange={setDiffView} />
-                </div>
+            {/* Sentinel: when this scrolls out of view, the toolbar is "stuck" */}
+            <div ref={toolbarSentinelRef} />
+            <div
+              className={`sticky top-0 z-10 transition-all duration-150 ${
+                isToolbarStuck
+                  ? 'opacity-0 hover:opacity-100 h-2 hover:h-auto overflow-hidden hover:overflow-visible'
+                  : ''
+              }`}
+            >
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
+                <ScrollingPath text={selectedFile} />
+                <Badge
+                  text={changeTypeLabel(selectedChange.changeType)}
+                  color={changeTypeBadgeColor(selectedChange.changeType)}
+                />
+                {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
+                <DiffViewToggle value={diffView} onChange={setDiffView} />
               </div>
             </div>
             {loadingFile ? (
