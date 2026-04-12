@@ -46,10 +46,11 @@ export function computeDiffLines(oldText: string, newText: string, ignoreWhitesp
   const oldLines = oldText.split('\n');
   const newLines = newText.split('\n');
 
-  // When ignoring leading whitespace, diff on trimmed lines then map back to originals.
-  // This matches ADO's server-side diff behavior: re-indented moved code is treated as unchanged.
-  const diffOld = ignoreWhitespace ? oldLines.map(l => l.trimStart()) : oldLines;
-  const diffNew = ignoreWhitespace ? newLines.map(l => l.trimStart()) : newLines;
+  // When ignoring whitespace, diff on trimmed lines then map back to originals.
+  // This matches ADO's server-side diff behavior: re-indented moved code and
+  // trailing whitespace changes are treated as unchanged.
+  const diffOld = ignoreWhitespace ? oldLines.map(l => l.trim()) : oldLines;
+  const diffNew = ignoreWhitespace ? newLines.map(l => l.trim()) : newLines;
   const regions = histogramDiff(diffOld, diffNew);
   const result: DiffLine[] = [];
 
