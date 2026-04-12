@@ -33,6 +33,10 @@ export interface DiffLine {
   oldLineNum: number | null;
   newLineNum: number | null;
   content: string;
+  /** Shared ID linking a moved-from block to its moved-to block */
+  moveId?: number;
+  /** Which side of a detected move this line belongs to */
+  moveSide?: 'source' | 'destination';
 }
 
 /** Number of unchanged context lines to show around each change/comment */
@@ -71,6 +75,101 @@ export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
     result.push({ type: 'unchanged', oldLineNum: oldIdx + 1, newLineNum: newIdx + 1, content: oldLines[oldIdx] });
     oldIdx++;
     newIdx++;
+  }
+
+  return result;
+}
+
+const MIN_MOVE_LINES = 3;
+
+/**
+ * Post-process diff lines to detect moved blocks.
+ * Uses normalized (whitespace-trimmed) line matching similar to Git's --color-moved=blocks.
+ * Only marks moves when normalized content is unique on each side, preventing false positives.
+ */
+export function detectMoves(lines: DiffLine[]): DiffLine[] {
+  // Build normalized lookup: trimmedContent -> indices[] for removed and added
+  const removedByNorm = new Map<string, number[]>();
+  const addedByNorm = new Map<string, number[]>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const norm = l.content.trim();
+    if (!norm) continue; // skip blank lines for matching
+    if (l.type === 'removed') {
+      const arr = removedByNorm.get(norm) || [];
+      arr.push(i);
+      removedByNorm.set(norm, arr);
+    } else if (l.type === 'added') {
+      const arr = addedByNorm.get(norm) || [];
+      arr.push(i);
+      addedByNorm.set(norm, arr);
+    }
+  }
+
+  // For each removed line, find if its normalized content has a 1:1 match in added lines.
+  // Build a per-line pairing: removedIdx -> addedIdx
+  const removedToAdded = new Map<number, number>();
+  const addedClaimed = new Set<number>();
+
+  for (const [norm, removedIdxs] of removedByNorm) {
+    const addedIdxs = addedByNorm.get(norm);
+    if (!addedIdxs) continue;
+    // Only pair if counts match (unique correspondence) or pair greedily
+    // Greedy: pair in order, one-to-one
+    let ai = 0;
+    for (let ri = 0; ri < removedIdxs.length && ai < addedIdxs.length; ri++) {
+      while (ai < addedIdxs.length && addedClaimed.has(addedIdxs[ai])) ai++;
+      if (ai >= addedIdxs.length) break;
+      removedToAdded.set(removedIdxs[ri], addedIdxs[ai]);
+      addedClaimed.add(addedIdxs[ai]);
+      ai++;
+    }
+  }
+
+  // Group consecutive paired lines into move blocks
+  // A move block: consecutive removed indices whose paired added indices are also consecutive
+  const usedRemoved = new Set<number>();
+  const moveBlocks: { removedStart: number; addedStart: number; length: number }[] = [];
+
+  const removedIndices = [...removedToAdded.keys()].sort((a, b) => a - b);
+
+  let i = 0;
+  while (i < removedIndices.length) {
+    if (usedRemoved.has(removedIndices[i])) { i++; continue; }
+    const rStart = removedIndices[i];
+    const aStart = removedToAdded.get(rStart)!;
+    let len = 1;
+
+    // Extend the block as long as consecutive removed lines pair to consecutive added lines
+    while (
+      i + len < removedIndices.length &&
+      removedIndices[i + len] === rStart + len &&
+      removedToAdded.get(removedIndices[i + len]) === aStart + len
+    ) {
+      len++;
+    }
+
+    if (len >= MIN_MOVE_LINES) {
+      moveBlocks.push({ removedStart: rStart, addedStart: aStart, length: len });
+      for (let j = 0; j < len; j++) usedRemoved.add(rStart + j);
+    }
+    i += len;
+  }
+
+  // Apply move metadata
+  if (moveBlocks.length === 0) return lines;
+
+  const result = lines.map(l => ({ ...l }));
+  let moveId = 1;
+  for (const block of moveBlocks) {
+    for (let j = 0; j < block.length; j++) {
+      result[block.removedStart + j].moveId = moveId;
+      result[block.removedStart + j].moveSide = 'source';
+      result[block.addedStart + j].moveId = moveId;
+      result[block.addedStart + j].moveSide = 'destination';
+    }
+    moveId++;
   }
 
   return result;
@@ -239,7 +338,7 @@ export function DiffViewer({
   // Width for comment/thread overlays: container width minus gutter columns (~6rem)
   const commentBoxWidth = containerWidth > 0 ? `${containerWidth - 10}px` : '100%';
 
-  const diffLines = useMemo(() => computeDiffLines(oldContent, newContent), [oldContent, newContent]);
+  const diffLines = useMemo(() => detectMoves(computeDiffLines(oldContent, newContent)), [oldContent, newContent]);
 
   const knownUsers: IdentitySearchResult[] = useMemo(
     () => usersMap ? Object.entries(usersMap).map(([id, displayName]) => ({ id, displayName })) : [],
@@ -399,6 +498,16 @@ export function DiffViewer({
   const gutterColors: Record<string, string> = {
     added: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400', removed: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400', unchanged: 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500',
   };
+  // Move-specific color overrides (blue/purple tones)
+  const moveLineColors: Record<string, string> = {
+    removed: 'bg-blue-50 dark:bg-blue-900/20', added: 'bg-blue-50 dark:bg-purple-900/20',
+  };
+  const moveLineTextColors: Record<string, string> = {
+    removed: 'text-blue-600 dark:text-blue-400', added: 'text-purple-700 dark:text-purple-400',
+  };
+  const moveGutterColors: Record<string, string> = {
+    removed: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400', added: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400',
+  };
 
   // Threads not matched to any diff line
   const matchedLineSet = new Set<number>();
@@ -427,6 +536,9 @@ export function DiffViewer({
         lineColors={lineColors}
         lineTextColors={lineTextColors}
         gutterColors={gutterColors}
+        moveLineColors={moveLineColors}
+        moveLineTextColors={moveLineTextColors}
+        moveGutterColors={moveGutterColors}
         lineThreads={lineThreads}
         isCommentOpen={commentLine != null && commentLine === newLineNum}
         onGutterClick={() => {
@@ -470,6 +582,9 @@ export function DiffViewer({
         lineColors={lineColors}
         lineTextColors={lineTextColors}
         gutterColors={gutterColors}
+        moveLineColors={moveLineColors}
+        moveLineTextColors={moveLineTextColors}
+        moveGutterColors={moveGutterColors}
         lineThreads={lineThreads}
         isCommentOpen={commentLine != null && commentLine === newLineNum}
         onGutterClick={() => {
@@ -631,7 +746,7 @@ export function DiffViewer({
 }
 
 function DiffLineRow({
-  line, lineColors, lineTextColors, gutterColors, lineThreads,
+  line, lineColors, lineTextColors, gutterColors, moveLineColors, moveLineTextColors, moveGutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
   usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
@@ -641,6 +756,9 @@ function DiffLineRow({
   lineColors: Record<string, string>;
   lineTextColors: Record<string, string>;
   gutterColors: Record<string, string>;
+  moveLineColors: Record<string, string>;
+  moveLineTextColors: Record<string, string>;
+  moveGutterColors: Record<string, string>;
   lineThreads: PullRequestThread[];
   isCommentOpen: boolean;
   onGutterClick: () => void;
@@ -664,14 +782,20 @@ function DiffLineRow({
   onAutoExpandHandled?: () => void;
   renderHighlighted: (content: string) => React.ReactNode;
 }) {
-  const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
+  const isMoved = line.moveId != null;
+  const bgColor = isMoved ? (moveLineColors[line.type] ?? lineColors[line.type]) : lineColors[line.type];
+  const textColor = isMoved ? (moveLineTextColors[line.type] ?? lineTextColors[line.type]) : lineTextColors[line.type];
+  const gutter = isMoved ? (moveGutterColors[line.type] ?? gutterColors[line.type]) : gutterColors[line.type];
+  const prefix = isMoved
+    ? (line.moveSide === 'source' ? '↰' : '↳')
+    : line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
 
   return (
-    <tr className={`${lineColors[line.type]} hover:brightness-95`} data-line={line.newLineNum ?? undefined}>
-      <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.oldLineNum ?? ''}</td>
-      <td className={`w-10 text-right px-2 py-0 select-none ${gutterColors[line.type]}`}>{line.newLineNum ?? ''}</td>
+    <tr className={`${bgColor} hover:brightness-95`} data-line={line.newLineNum ?? undefined} title={isMoved ? `Moved code (block ${line.moveId})` : undefined}>
+      <td className={`w-10 text-right px-2 py-0 select-none ${gutter}`}>{line.oldLineNum ?? ''}</td>
+      <td className={`w-10 text-right px-2 py-0 select-none ${gutter}`}>{line.newLineNum ?? ''}</td>
       <td
-        className={`w-5 text-center px-1 py-0 select-none ${gutterColors[line.type]} ${lineThreads.length > 0 ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
+        className={`w-5 text-center px-1 py-0 select-none ${gutter} ${lineThreads.length > 0 ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
         onClick={lineThreads.length > 0 ? undefined : onGutterClick}
         title={lineThreads.length > 0 ? undefined : 'Add comment'}
       >
@@ -708,7 +832,7 @@ function DiffLineRow({
           ) : ''
         )}
       </td>
-      <td className={`px-3 py-0 whitespace-pre ${lineTextColors[line.type]}`}>
+      <td className={`px-3 py-0 whitespace-pre ${textColor}`}>
         <span className="select-none opacity-50 mr-1">{prefix}</span>
         {renderHighlighted(line.content)}
       </td>
@@ -717,7 +841,7 @@ function DiffLineRow({
 }
 
 function SplitDiffLineRow({
-  pair, lineColors, lineTextColors, gutterColors, lineThreads,
+  pair, lineColors, lineTextColors, gutterColors, moveLineColors, moveLineTextColors, moveGutterColors, lineThreads,
   isCommentOpen, onGutterClick, commentText, onCommentTextChange,
   sending, onSubmitComment, onCancelComment, onReply, onSetStatus, onDeleteComment, onToggleLike,
   usersMap, currentUserId, isPrOwner, hiddenThreadIds, onToggleHideThread, knownUsers, onMentionInserted,
@@ -727,6 +851,9 @@ function SplitDiffLineRow({
   lineColors: Record<string, string>;
   lineTextColors: Record<string, string>;
   gutterColors: Record<string, string>;
+  moveLineColors: Record<string, string>;
+  moveLineTextColors: Record<string, string>;
+  moveGutterColors: Record<string, string>;
   lineThreads: PullRequestThread[];
   isCommentOpen: boolean;
   onGutterClick: () => void;
@@ -754,19 +881,28 @@ function SplitDiffLineRow({
   const rightType = pair.right?.type ?? 'unchanged';
   const leftEmpty = !pair.left;
   const rightEmpty = !pair.right;
+  const leftMoved = pair.left?.moveId != null;
+  const rightMoved = pair.right?.moveId != null;
 
   const emptyBg = 'bg-gray-100 dark:bg-gray-800';
-  const leftPrefix = pair.left?.type === 'removed' ? '-' : ' ';
-  const rightPrefix = pair.right?.type === 'added' ? '+' : ' ';
+  const leftPrefix = leftMoved ? (pair.left?.moveSide === 'source' ? '↰' : '↳') : pair.left?.type === 'removed' ? '-' : ' ';
+  const rightPrefix = rightMoved ? (pair.right?.moveSide === 'source' ? '↰' : '↳') : pair.right?.type === 'added' ? '+' : ' ';
+
+  const leftGutter = leftEmpty ? emptyBg : leftMoved ? (moveGutterColors[leftType] ?? gutterColors[leftType]) : gutterColors[leftType];
+  const leftBg = leftEmpty ? emptyBg : leftMoved ? (moveLineColors[leftType] ?? lineColors[leftType]) : lineColors[leftType];
+  const leftText = leftMoved ? (moveLineTextColors[leftType] ?? lineTextColors[leftType]) : lineTextColors[leftType];
+  const rightGutter = rightEmpty ? emptyBg : rightMoved ? (moveGutterColors[rightType] ?? gutterColors[rightType]) : gutterColors[rightType];
+  const rightBg = rightEmpty ? emptyBg : rightMoved ? (moveLineColors[rightType] ?? lineColors[rightType]) : lineColors[rightType];
+  const rightText = rightMoved ? (moveLineTextColors[rightType] ?? lineTextColors[rightType]) : lineTextColors[rightType];
 
   return (
     <tr className="hover:brightness-95" data-line={pair.right?.newLineNum ?? undefined}>
       {/* Left: old line number */}
-      <td className={`text-right px-2 py-0 select-none ${leftEmpty ? emptyBg : gutterColors[leftType]}`}>
+      <td className={`text-right px-2 py-0 select-none ${leftGutter}`}>
         {pair.left?.oldLineNum ?? ''}
       </td>
       {/* Left: old content */}
-      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${leftEmpty ? emptyBg : `${lineColors[leftType]} ${lineTextColors[leftType]}`}`}>
+      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${leftBg} ${leftText}`} title={leftMoved ? `Moved code (block ${pair.left?.moveId})` : undefined}>
         {pair.left && (
           <>
             <span className="select-none opacity-50 mr-1">{leftPrefix}</span>
@@ -777,12 +913,12 @@ function SplitDiffLineRow({
       {/* Divider */}
       <td className="bg-gray-300 dark:bg-gray-600" />
       {/* Right: new line number */}
-      <td className={`text-right px-2 py-0 select-none ${rightEmpty ? emptyBg : gutterColors[rightType]}`}>
+      <td className={`text-right px-2 py-0 select-none ${rightGutter}`}>
         {pair.right?.newLineNum ?? ''}
       </td>
       {/* Right: comment gutter */}
       <td
-        className={`text-center px-1 py-0 select-none ${rightEmpty ? emptyBg : gutterColors[rightType]} ${lineThreads.length > 0 || rightEmpty ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
+        className={`text-center px-1 py-0 select-none ${rightGutter} ${lineThreads.length > 0 || rightEmpty ? '' : 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900'}`}
         onClick={lineThreads.length > 0 || rightEmpty ? undefined : onGutterClick}
         title={lineThreads.length > 0 || rightEmpty ? undefined : 'Add comment'}
       >
@@ -820,7 +956,7 @@ function SplitDiffLineRow({
         )}
       </td>
       {/* Right: new content */}
-      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${rightEmpty ? emptyBg : `${lineColors[rightType]} ${lineTextColors[rightType]}`}`}>
+      <td className={`px-3 py-0 whitespace-pre overflow-hidden ${rightBg} ${rightText}`} title={rightMoved ? `Moved code (block ${pair.right?.moveId})` : undefined}>
         {pair.right && (
           <>
             <span className="select-none opacity-50 mr-1">{rightPrefix}</span>
