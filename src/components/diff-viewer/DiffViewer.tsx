@@ -833,7 +833,7 @@ export function DiffViewer({
                     const textCls = isChanged ? (viewMode === 'original' ? lineTextColors.removed : lineTextColors.added) : 'text-gray-800 dark:text-gray-200';
                     const gutterCls = isChanged ? (viewMode === 'original' ? gutterColors.removed : gutterColors.added) : 'bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500';
                     return (
-                      <tr key={i} className={`hover:brightness-95 ${bgCls}`}>
+                      <tr key={i} className={`hover:brightness-95 ${bgCls}`} data-line={lineNum}>
                         <td className={`text-right px-2 py-0 select-none ${gutterCls}`}>{lineNum}</td>
                         <td className={`px-3 py-0 whitespace-pre ${textCls}`}>{renderHighlighted(line)}</td>
                       </tr>
