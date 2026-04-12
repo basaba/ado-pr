@@ -810,24 +810,40 @@ export function DiffViewer({
           document.body,
         )}
 
-        {viewMode === 'original' || viewMode === 'modified' ? (
-          <div className="overflow-x-auto">
-            <table className="border-collapse" style={{ minWidth: '100%' }}>
-              <colgroup>
-                <col style={{ width: 50 }} />
-                <col />
-              </colgroup>
-              <tbody>
-                {(viewMode === 'original' ? oldContent : newContent).split('\n').map((line, i) => (
-                  <tr key={i} className="hover:brightness-95">
-                    <td className="text-right px-2 py-0 select-none bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500">{i + 1}</td>
-                    <td className="px-3 py-0 whitespace-pre text-gray-800 dark:text-gray-200">{renderHighlighted(line)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : viewMode === 'split' ? (
+        {viewMode === 'original' || viewMode === 'modified' ? (() => {
+          // Build set of changed line numbers from diff data
+          const changedLines = new Set<number>();
+          for (const dl of diffLines) {
+            if (viewMode === 'original' && dl.type === 'removed' && dl.oldLineNum) changedLines.add(dl.oldLineNum);
+            if (viewMode === 'modified' && dl.type === 'added' && dl.newLineNum) changedLines.add(dl.newLineNum);
+          }
+          const lines = (viewMode === 'original' ? oldContent : newContent).split('\n');
+          return (
+            <div className="overflow-x-auto">
+              <table className="border-collapse" style={{ minWidth: '100%' }}>
+                <colgroup>
+                  <col style={{ width: 50 }} />
+                  <col />
+                </colgroup>
+                <tbody>
+                  {lines.map((line, i) => {
+                    const lineNum = i + 1;
+                    const isChanged = changedLines.has(lineNum);
+                    const bgCls = isChanged ? (viewMode === 'original' ? lineColors.removed : lineColors.added) : '';
+                    const textCls = isChanged ? (viewMode === 'original' ? lineTextColors.removed : lineTextColors.added) : 'text-gray-800 dark:text-gray-200';
+                    const gutterCls = isChanged ? (viewMode === 'original' ? gutterColors.removed : gutterColors.added) : 'bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500';
+                    return (
+                      <tr key={i} className={`hover:brightness-95 ${bgCls}`}>
+                        <td className={`text-right px-2 py-0 select-none ${gutterCls}`}>{lineNum}</td>
+                        <td className={`px-3 py-0 whitespace-pre ${textCls}`}>{renderHighlighted(line)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })() : viewMode === 'split' ? (
           <div className="flex" ref={splitContainerRef}>
             {/* Left pane (old) */}
             <div
