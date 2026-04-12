@@ -3,6 +3,7 @@ import { getBranchDiff, getFileContentByBranch } from '../../api';
 import type { BranchDiffChange } from '../../api/diffs';
 import { Spinner, Badge } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
+import type { DiffViewMode } from '../diff-viewer';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { useLocalStorageState } from '../../hooks';
 
@@ -69,7 +70,7 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
   const [fileContent, setFileContent] = useState<{ oldContent: string; newContent: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
-  const [diffView, setDiffView] = useLocalStorageState<'unified' | 'split'>('ado-pr-diff-view', 'unified');
+  const [diffView, setDiffView] = useLocalStorageState<DiffViewMode>('ado-pr-diff-view', 'unified');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -168,26 +169,19 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
                   color={changeTypeBadgeColor(selectedChange.changeType)}
                 />
                 <span className="ml-auto inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
-                  <button
-                    onClick={() => setDiffView('unified')}
-                    className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                      diffView === 'unified'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    Inline
-                  </button>
-                  <button
-                    onClick={() => setDiffView('split')}
-                    className={`px-2 py-0.5 text-[11px] font-medium transition-colors border-l border-gray-200 dark:border-gray-700 ${
-                      diffView === 'split'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    Side by Side
-                  </button>
+                  {([['unified', 'Inline'], ['split', 'Side by Side'], ['original', 'Before'], ['modified', 'After']] as const).map(([key, label], i) => (
+                    <button
+                      key={key}
+                      onClick={() => setDiffView(key)}
+                      className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${i > 0 ? 'border-l border-gray-200 dark:border-gray-700' : ''} ${
+                        diffView === key
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </span>
               </div>
               {loadingFile ? (

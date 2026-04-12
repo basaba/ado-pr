@@ -4,6 +4,7 @@ import { useSearchParamStateNullable, useLocalStorageState } from '../../hooks';
 import { changeTypeLabel, changeTypeBadgeColor } from '../../utils';
 import { Badge, Spinner } from '../common';
 import { DiffViewer, computeDiffLines, ScrollbarMinimap } from '../diff-viewer';
+import type { DiffViewMode } from '../diff-viewer';
 import type { PullRequestThread, IterationChange } from '../../types';
 
 /** Displays a path that scrolls horizontally on hover when it overflows */
@@ -122,7 +123,7 @@ function buildFileTree(
 
 export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHandled, currentUserId, isPrOwner, onMentionInserted }: Props) {
   const [selectedFile, setSelectedFile] = useSearchParamStateNullable('file');
-  const [diffView, setDiffView] = useLocalStorageState<'unified' | 'split'>('ado-pr-diff-view', 'unified');
+  const [diffView, setDiffView] = useLocalStorageState<DiffViewMode>('ado-pr-diff-view', 'unified');
   const [fileContent, setFileContent] = useState<{
     oldContent: string;
     newContent: string;
@@ -466,29 +467,28 @@ function LineStats({ oldContent, newContent }: { oldContent: string; newContent:
   );
 }
 
-function DiffViewToggle({ value, onChange }: { value: 'unified' | 'split'; onChange: (v: 'unified' | 'split') => void }) {
+function DiffViewToggle({ value, onChange }: { value: DiffViewMode; onChange: (v: DiffViewMode) => void }) {
+  const options: { key: DiffViewMode; label: string }[] = [
+    { key: 'unified', label: 'Inline' },
+    { key: 'split', label: 'Side by Side' },
+    { key: 'original', label: 'Before' },
+    { key: 'modified', label: 'After' },
+  ];
   return (
     <span className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 ml-1">
-      <button
-        onClick={() => onChange('unified')}
-        className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${
-          value === 'unified'
-            ? 'bg-blue-500 text-white'
-            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-        }`}
-      >
-        Inline
-      </button>
-      <button
-        onClick={() => onChange('split')}
-        className={`px-2 py-0.5 text-[11px] font-medium transition-colors border-l border-gray-200 dark:border-gray-700 ${
-          value === 'split'
-            ? 'bg-blue-500 text-white'
-            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-        }`}
-      >
-        Side by Side
-      </button>
+      {options.map((opt, i) => (
+        <button
+          key={opt.key}
+          onClick={() => onChange(opt.key)}
+          className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${i > 0 ? 'border-l border-gray-200 dark:border-gray-700' : ''} ${
+            value === opt.key
+              ? 'bg-blue-500 text-white'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
     </span>
   );
 }

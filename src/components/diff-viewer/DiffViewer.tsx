@@ -25,8 +25,10 @@ interface Props {
   scrollToLine?: number;
   onScrollHandled?: () => void;
   onMentionInserted?: (user: IdentitySearchResult) => void;
-  viewMode?: 'unified' | 'split';
+  viewMode?: DiffViewMode;
 }
+
+export type DiffViewMode = 'unified' | 'split' | 'original' | 'modified';
 
 export interface DiffLine {
   type: 'unchanged' | 'added' | 'removed';
@@ -808,7 +810,24 @@ export function DiffViewer({
           document.body,
         )}
 
-        {viewMode === 'split' ? (
+        {viewMode === 'original' || viewMode === 'modified' ? (
+          <div className="overflow-x-auto">
+            <table className="border-collapse" style={{ minWidth: '100%' }}>
+              <colgroup>
+                <col style={{ width: 50 }} />
+                <col />
+              </colgroup>
+              <tbody>
+                {(viewMode === 'original' ? oldContent : newContent).split('\n').map((line, i) => (
+                  <tr key={i} className="hover:brightness-95">
+                    <td className="text-right px-2 py-0 select-none bg-gray-50 dark:bg-gray-800/50 text-gray-400">{i + 1}</td>
+                    <td className="px-3 py-0 whitespace-pre">{renderHighlighted(line)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : viewMode === 'split' ? (
           <div className="flex" ref={splitContainerRef}>
             {/* Left pane (old) */}
             <div
