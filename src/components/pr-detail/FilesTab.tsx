@@ -298,7 +298,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
     <div className="flex gap-0">
       {/* File tree sidebar — stretches full height, content is sticky */}
       <div className="shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900" style={{ width: sidebarWidth }}>
-        <div className="sticky top-0 overflow-y-auto" style={{ maxHeight: '100vh' }}>
+        <div className="sticky top-[45px] overflow-y-auto" style={{ maxHeight: 'calc(100vh - 45px)' }}>
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-gray-50 dark:bg-gray-900 z-10">
             {diff.changes.length} changed file{diff.changes.length !== 1 ? 's' : ''}
           </div>
