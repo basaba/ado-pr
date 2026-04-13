@@ -104,14 +104,17 @@ export function CommitDiffView({ repoId, commitId }: Props) {
   const toolbarSentinelRef = useRef<HTMLDivElement>(null);
   const [isToolbarStuck, setIsToolbarStuck] = useState(false);
   const [toolbarHovered, setToolbarHovered] = useState(false);
-  const [contentRect, setContentRect] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
+  const [contentRect, setContentRect] = useState<{ left: number; width: number; top: number }>({ left: 0, width: 0, top: 0 });
 
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
+    const shadowContainer = el.closest('.shadow');
+    const tabBar = shadowContainer?.querySelector(':scope > .sticky') as HTMLElement | null;
     const update = () => {
       const r = el.getBoundingClientRect();
-      setContentRect({ left: r.left, width: r.width });
+      const tabBottom = tabBar ? tabBar.getBoundingClientRect().bottom : 0;
+      setContentRect({ left: r.left, width: r.width, top: tabBottom });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -246,16 +249,16 @@ export function CommitDiffView({ repoId, commitId }: Props) {
             <div ref={toolbarSentinelRef} />
             {isToolbarStuck && (
               <div
-                className="fixed top-0 h-8 z-20"
-                style={{ left: contentRect.left, width: contentRect.width }}
+                className="fixed h-8 z-20"
+                style={{ left: contentRect.left, width: contentRect.width, top: contentRect.top }}
                 onMouseEnter={() => setToolbarHovered(true)}
                 onMouseLeave={() => setToolbarHovered(false)}
               />
             )}
             {isToolbarStuck && toolbarHovered && (
               <div
-                className="fixed top-0 z-20"
-                style={{ left: contentRect.left, width: contentRect.width }}
+                className="fixed z-20"
+                style={{ left: contentRect.left, width: contentRect.width, top: contentRect.top }}
                 onMouseEnter={() => setToolbarHovered(true)}
                 onMouseLeave={() => setToolbarHovered(false)}
               >
