@@ -422,14 +422,16 @@ function LineStats({ oldContent, newContent }: { oldContent: string; newContent:
 }
 
 function DiffViewToggle({ value, onChange }: { value: DiffViewMode; onChange: (v: DiffViewMode) => void }) {
-  const options: { key: DiffViewMode; label: string }[] = [
+  const diffOptions: { key: DiffViewMode; label: string }[] = [
     { key: 'unified', label: 'Inline' },
     { key: 'split', label: 'Side by Side' },
+  ];
+  const fileOptions: { key: DiffViewMode; label: string }[] = [
     { key: 'original', label: 'Before' },
     { key: 'modified', label: 'After' },
   ];
-  return (
-    <span className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 ml-1">
+  const renderGroup = (options: { key: DiffViewMode; label: string }[]) => (
+    <span className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
       {options.map((opt, i) => (
         <button
           key={opt.key}
@@ -443,6 +445,12 @@ function DiffViewToggle({ value, onChange }: { value: DiffViewMode; onChange: (v
           {opt.label}
         </button>
       ))}
+    </span>
+  );
+  return (
+    <span className="inline-flex gap-2 shrink-0 ml-1">
+      {renderGroup(diffOptions)}
+      {renderGroup(fileOptions)}
     </span>
   );
 }

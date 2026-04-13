@@ -168,19 +168,26 @@ export function BranchDiffPreview({ repoId, sourceBranch, targetBranch }: Props)
                   text={changeTypeLabel(selectedChange.changeType)}
                   color={changeTypeBadgeColor(selectedChange.changeType)}
                 />
-                <span className="ml-auto inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
-                  {([['unified', 'Inline'], ['split', 'Side by Side'], ['original', 'Before'], ['modified', 'After']] as const).map(([key, label], i) => (
-                    <button
-                      key={key}
-                      onClick={() => setDiffView(key)}
-                      className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${i > 0 ? 'border-l border-gray-200 dark:border-gray-700' : ''} ${
-                        diffView === key
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {label}
-                    </button>
+                <span className="ml-auto inline-flex gap-2 shrink-0">
+                  {[
+                    [['unified', 'Inline'], ['split', 'Side by Side']],
+                    [['original', 'Before'], ['modified', 'After']],
+                  ].map((group, gi) => (
+                    <span key={gi} className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      {(group as [string, string][]).map(([key, label], i) => (
+                        <button
+                          key={key}
+                          onClick={() => setDiffView(key as DiffViewMode)}
+                          className={`px-2 py-0.5 text-[11px] font-medium transition-colors ${i > 0 ? 'border-l border-gray-200 dark:border-gray-700' : ''} ${
+                            diffView === key
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </span>
                   ))}
                 </span>
               </div>
