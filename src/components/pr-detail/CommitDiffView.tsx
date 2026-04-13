@@ -104,6 +104,21 @@ export function CommitDiffView({ repoId, commitId }: Props) {
   const toolbarSentinelRef = useRef<HTMLDivElement>(null);
   const [isToolbarStuck, setIsToolbarStuck] = useState(false);
   const [toolbarHovered, setToolbarHovered] = useState(false);
+  const [contentRect, setContentRect] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setContentRect({ left: r.left, width: r.width });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('scroll', update, { passive: true });
+    return () => { ro.disconnect(); window.removeEventListener('scroll', update); };
+  }, []);
 
   useEffect(() => {
     const sentinel = toolbarSentinelRef.current;
@@ -231,14 +246,16 @@ export function CommitDiffView({ repoId, commitId }: Props) {
             <div ref={toolbarSentinelRef} />
             {isToolbarStuck && (
               <div
-                className="fixed top-0 left-0 right-0 h-8 z-20"
+                className="fixed top-0 h-8 z-20"
+                style={{ left: contentRect.left, width: contentRect.width }}
                 onMouseEnter={() => setToolbarHovered(true)}
                 onMouseLeave={() => setToolbarHovered(false)}
               />
             )}
             {isToolbarStuck && toolbarHovered && (
               <div
-                className="fixed top-0 left-0 right-0 z-20 animate-in fade-in duration-150"
+                className="fixed top-0 z-20"
+                style={{ left: contentRect.left, width: contentRect.width }}
                 onMouseEnter={() => setToolbarHovered(true)}
                 onMouseLeave={() => setToolbarHovered(false)}
               >
