@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { searchUsers, resolveIdentityId, type UserSearchResult } from '../api/pullRequests';
 import {
   type ListMap,
@@ -9,7 +9,6 @@ import {
 } from '../components/common/authorListStore';
 
 export function AuthorListPage() {
-  const navigate = useNavigate();
   const [lists, setLists] = useState<ListMap>(loadLists);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -132,12 +131,12 @@ export function AuthorListPage() {
 
   return (
     <div>
-      <button
-        onClick={() => navigate('/')}
-        className="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-2"
+      <Link
+        to="/"
+        className="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-2 inline-block"
       >
         ← Back to Pull Requests
-      </button>
+      </Link>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Manage Author Lists</h1>
         <button

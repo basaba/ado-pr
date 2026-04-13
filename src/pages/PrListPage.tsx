@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { usePullRequests, useSearchParamState } from '../hooks';
 import { Spinner, ErrorBanner, Badge, ReviewerVotes } from '../components/common';
 import { AuthorListManager } from '../components/common/AuthorListManager';
@@ -293,10 +293,10 @@ export function PrListPage() {
       {!loading && !error && pullRequests.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow divide-y divide-gray-100 dark:divide-gray-700">
           {pullRequests.map((pr) => (
-              <div
+              <Link
                 key={pr.pullRequestId}
+                to={`/pr/${pr.repository.id}/${pr.pullRequestId}`}
                 className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
-                onClick={() => navigate(`/pr/${pr.repository.id}/${pr.pullRequestId}`)}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -327,7 +327,7 @@ export function PrListPage() {
                   })()}
                   <ReviewerVotes reviewers={pr.reviewers} currentUserId={profile?.id} />
                 </div>
-              </div>
+              </Link>
           ))}
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { loadLists, SELECTED_KEY } from './authorListStore';
 
 interface AuthorListManagerProps {
@@ -10,7 +10,6 @@ interface AuthorListManagerProps {
 }
 
 export function AuthorListManager({ selected, onSelectedChange, active, onActiveChange }: AuthorListManagerProps) {
-  const navigate = useNavigate();
   const [lists] = useState(() => loadLists());
 
   const handleSelect = useCallback((name: string) => {
@@ -42,12 +41,12 @@ export function AuthorListManager({ selected, onSelectedChange, active, onActive
           {name}
         </button>
       ))}
-      <button
-        onClick={() => navigate('/author-lists')}
+      <Link
+        to="/author-lists"
         className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
       >
         + New list
-      </button>
+      </Link>
     </div>
   );
 }

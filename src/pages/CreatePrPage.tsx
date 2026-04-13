@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button, ErrorBanner, ErrorBoundary, Spinner } from '../components/common';
 import {
   getRepositoryByName,
@@ -421,14 +421,12 @@ export function CreatePrPage() {
           >
             {submitting ? 'Creating…' : 'Create Pull Request'}
           </Button>
-          <Button
-            variant="ghost"
-            size="md"
-            onClick={() => navigate('/')}
-            disabled={submitting}
+          <Link
+            to="/"
+            className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 ${submitting ? 'pointer-events-none opacity-50' : ''}`}
           >
             Cancel
-          </Button>
+          </Link>
           {submitting && <Spinner className="ml-2" />}
         </div>
       </div>
