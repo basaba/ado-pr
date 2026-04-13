@@ -318,14 +318,28 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                 onMouseLeave={() => setToolbarHovered(false)}
               />
             )}
-            <div
-              className={`sticky top-0 z-20 transition-opacity duration-150 ${
-                isToolbarStuck && !toolbarHovered ? 'opacity-0 pointer-events-none h-0' : ''
-              }`}
-              onMouseEnter={() => isToolbarStuck && setToolbarHovered(true)}
-              onMouseLeave={() => setToolbarHovered(false)}
-            >
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
+            {isToolbarStuck && toolbarHovered && (
+              <div
+                className="fixed top-0 left-0 right-0 z-20 animate-in fade-in duration-150"
+                onMouseEnter={() => setToolbarHovered(true)}
+                onMouseLeave={() => setToolbarHovered(false)}
+              >
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 shadow-md">
+                  <ScrollingPath text={selectedFile} />
+                  <Badge
+                    text={changeTypeLabel(selectedChange.changeType)}
+                    color={changeTypeBadgeColor(selectedChange.changeType)}
+                  />
+                  {fileContent && <LineStats oldContent={fileContent.oldContent} newContent={fileContent.newContent} />}
+                  {fileThreads.length > 0 && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400">💬 {fileThreads.length}</span>
+                  )}
+                  <DiffViewToggle value={diffView} onChange={setDiffView} />
+                </div>
+              </div>
+            )}
+            {!isToolbarStuck && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                 <ScrollingPath text={selectedFile} />
                 <Badge
                   text={changeTypeLabel(selectedChange.changeType)}
@@ -337,7 +351,7 @@ export function FilesTab({ diff, threads, usersMap, navigateTarget, onNavigateHa
                 )}
                 <DiffViewToggle value={diffView} onChange={setDiffView} />
               </div>
-            </div>
+            )}
             {loadingFile ? (
               <Spinner className="py-10" />
             ) : fileContent ? (
