@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
-import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete, adoClient } from '../api';
+import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete, updatePullRequest, adoClient } from '../api';
 import { useAuth } from '../context';
 import { useThreads, useDiff, useCommits, useSearchParamState } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
@@ -31,6 +31,8 @@ export function PrDetailPage() {
   const [voting, setVoting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [fileNavTarget, setFileNavTarget] = useState<FileNavigateTarget | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
 
   const threads = useThreads(repoId!, Number(prId));
   const diff = useDiff(repoId!, Number(prId));
@@ -177,6 +179,31 @@ export function PrDetailPage() {
     }
   };
 
+  const handleSaveTitle = async () => {
+    const trimmed = titleDraft.trim();
+    if (!trimmed || trimmed === pr.title) {
+      setEditingTitle(false);
+      return;
+    }
+    try {
+      const updated = await updatePullRequest(repoId!, pr.pullRequestId, { title: trimmed });
+      setPr(updated);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update title');
+    }
+    setEditingTitle(false);
+  };
+
+  const handleUpdateDescription = async (description: string) => {
+    try {
+      const updated = await updatePullRequest(repoId!, pr.pullRequestId, { description });
+      setPr(updated);
+      showToast('Description updated', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update description');
+    }
+  };
+
   const hasConflicts = pr.mergeStatus === 'conflicts';
 
   const tabs: { id: Tab; label: string; count?: number; warn?: boolean }[] = [
@@ -206,7 +233,32 @@ export function PrDetailPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              {pr.title}
+              {editingTitle ? (
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={handleSaveTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Escape') setEditingTitle(false);
+                  }}
+                  className="bg-white dark:bg-gray-700 border border-blue-400 rounded px-2 py-0.5 text-xl font-bold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xl"
+                />
+              ) : (
+                <span
+                  className={isMyPr && isActive ? 'cursor-pointer hover:underline decoration-dashed underline-offset-4' : ''}
+                  onClick={() => {
+                    if (isMyPr && isActive) {
+                      setTitleDraft(pr.title);
+                      setEditingTitle(true);
+                    }
+                  }}
+                  title={isMyPr && isActive ? 'Click to edit title' : undefined}
+                >
+                  {pr.title}
+                </span>
+              )}
               {pr.isDraft && <Badge text="Draft" color="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300" />}
               <button
                 type="button"
@@ -306,7 +358,7 @@ export function PrDetailPage() {
 
         <div className={activeTab === 'files' || activeTab === 'copilot' || activeTab === 'commits' || activeTab === 'conflicts' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
-            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} knownUsers={knownUsers} onMentionInserted={handleMentionInserted} />
+            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} knownUsers={knownUsers} onMentionInserted={handleMentionInserted} isEditable={isMyPr && isActive} onUpdateDescription={handleUpdateDescription} />
           )}
           {activeTab === 'files' && (
             <FilesTab

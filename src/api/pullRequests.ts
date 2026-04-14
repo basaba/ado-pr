@@ -206,6 +206,15 @@ export async function abandonPullRequest(
   });
 }
 
+/** Update PR title and/or description */
+export async function updatePullRequest(
+  repoId: string,
+  prId: number,
+  fields: { title?: string; description?: string },
+): Promise<PullRequest> {
+  return adoClient.patch<PullRequest>(prBasePath(repoId, prId), fields);
+}
+
 export async function setAutoComplete(
   repoId: string,
   prId: number,

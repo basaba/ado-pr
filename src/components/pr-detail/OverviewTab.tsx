@@ -13,9 +13,15 @@ interface Props {
   currentUserId?: string;
   knownUsers?: IdentitySearchResult[];
   onMentionInserted?: (user: IdentitySearchResult) => void;
+  isEditable?: boolean;
+  onUpdateDescription?: (description: string) => Promise<void>;
 }
 
-export function OverviewTab({ pr, threads, usersMap, currentUserId, knownUsers: knownUsersProp, onMentionInserted }: Props) {
+export function OverviewTab({ pr, threads, usersMap, currentUserId, knownUsers: knownUsersProp, onMentionInserted, isEditable, onUpdateDescription }: Props) {
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState('');
+  const [savingDesc, setSavingDesc] = useState(false);
+
   // Filter general (non-file-specific) threads
   const generalThreads = threads.threads.filter(
     (t) => !t.threadContext?.filePath && t.comments.some((c) => isTextComment(c.commentType)),
@@ -30,13 +36,66 @@ export function OverviewTab({ pr, threads, usersMap, currentUserId, knownUsers: 
     <div className="space-y-6">
       {/* Description */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Description</h2>
-        {pr.description ? (
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Description</h2>
+          {isEditable && !editingDesc && (
+            <button
+              onClick={() => { setDescDraft(pr.description || ''); setEditingDesc(true); }}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+        {editingDesc ? (
+          <div>
+            <textarea
+              autoFocus
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value)}
+              rows={8}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 font-mono"
+              placeholder="Enter description (Markdown supported)..."
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <button
+                onClick={() => setEditingDesc(false)}
+                className="px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={savingDesc}
+                onClick={async () => {
+                  if (onUpdateDescription) {
+                    setSavingDesc(true);
+                    await onUpdateDescription(descDraft);
+                    setSavingDesc(false);
+                  }
+                  setEditingDesc(false);
+                }}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
+              >
+                {savingDesc ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        ) : pr.description ? (
           <div className="bg-gray-50 dark:bg-gray-900 rounded p-4">
             <MarkdownContent content={pr.description} className="text-gray-700 dark:text-gray-200" usersMap={usersMap} />
           </div>
         ) : (
-          <p className="text-gray-400 dark:text-gray-500 text-sm italic">No description provided.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm italic">
+            No description provided.
+            {isEditable && (
+              <button
+                onClick={() => { setDescDraft(''); setEditingDesc(true); }}
+                className="ml-2 text-blue-600 dark:text-blue-400 hover:underline not-italic"
+              >
+                Add one
+              </button>
+            )}
+          </p>
         )}
       </section>
 
