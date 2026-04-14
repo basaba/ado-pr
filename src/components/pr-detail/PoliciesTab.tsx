@@ -123,30 +123,26 @@ export function PoliciesTab({ prId, repoName }: Props) {
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 {(() => {
                   const url = getPolicyUrl(ev, prId, repoName);
-                  const name = ev.configuration.type.displayName;
+                  const settingsName = typeof ev.configuration.settings?.displayName === 'string' && ev.configuration.settings.displayName
+                    ? ev.configuration.settings.displayName
+                    : null;
+                  const name = settingsName ?? ev.configuration.type.displayName;
                   return url ? (
                     <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline text-blue-600 dark:text-blue-400">
                       {name}
                     </a>
                   ) : name;
                 })()}
-                {ev.context?.buildDefinitionName && (
-                  <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">
-                    — {ev.context.buildDefinitionName}
-                  </span>
-                )}
               </div>
-              {typeof ev.configuration.settings?.displayName === 'string' && ev.configuration.settings.displayName && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {ev.configuration.settings.displayName}
-                </div>
-              )}
               <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-2">
                 {ev.configuration.isBlocking && (
                   <span className="text-orange-600 dark:text-orange-400 font-medium">Required</span>
                 )}
                 {!ev.configuration.isBlocking && (
                   <span className="text-gray-400 dark:text-gray-500">Optional</span>
+                )}
+                {ev.context?.isExpired && (
+                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">Expired</span>
                 )}
               </div>
             </div>
