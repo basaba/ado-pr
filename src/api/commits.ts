@@ -11,6 +11,18 @@ export async function listPrCommits(
   return data.value;
 }
 
+/** Fetch the most recent commit on a given branch */
+export async function getLatestBranchCommit(
+  repoId: string,
+  branchName: string,
+): Promise<GitCommitRef | undefined> {
+  const data = await adoClient.get<AdoListResponse<GitCommitRef>>(
+    `/git/repositories/${repoId}/commits`,
+    { 'searchCriteria.itemVersion.version': branchName, '$top': '1' },
+  );
+  return data.value?.[0];
+}
+
 export async function getCommitDetails(
   repoId: string,
   commitId: string,

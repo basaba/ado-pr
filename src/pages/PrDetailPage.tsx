@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
-import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete, updatePullRequest, adoClient } from '../api';
+import { getPullRequest, votePullRequest, completePullRequest, abandonPullRequest, setAutoComplete, cancelAutoComplete, updatePullRequest, publishPullRequest, addPrReviewer, removePrReviewer, resolveIdentityId, adoClient } from '../api';
 import { useAuth } from '../context';
 import { useThreads, useDiff, useCommits, useSearchParamState } from '../hooks';
 import type { PullRequest, VoteValue } from '../types';
@@ -204,6 +204,55 @@ export function PrDetailPage() {
     }
   };
 
+  const handleAddReviewer = async (user: import('../api/pullRequests').UserSearchResult) => {
+    try {
+      const resolvedId = user.descriptor
+        ? await resolveIdentityId(user.descriptor)
+        : user.id;
+      await addPrReviewer(repoId!, pr.pullRequestId, resolvedId);
+      // Re-fetch PR to get the updated reviewer list
+      const updated = await getPullRequest(repoId!, pr.pullRequestId);
+      setPr(updated);
+      showToast(`Added ${user.displayName}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to add reviewer');
+    }
+  };
+
+  const handleRemoveReviewer = async (reviewerId: string) => {
+    try {
+      await removePrReviewer(repoId!, pr.pullRequestId, reviewerId);
+      setPr((prev) =>
+        prev ? { ...prev, reviewers: prev.reviewers.filter((r) => r.id !== reviewerId) } : prev,
+      );
+      showToast('Reviewer removed', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to remove reviewer');
+    }
+  };
+
+  const handlePublish = async () => {
+    setConfirmDialog({
+      title: 'Publish Pull Request',
+      message: 'This will convert the draft into a regular pull request. Reviewers will be notified.',
+      confirmLabel: 'Publish',
+      variant: 'primary',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setActionLoading(true);
+        try {
+          const updated = await publishPullRequest(repoId!, pr.pullRequestId);
+          setPr(updated);
+          showToast('Pull request published', 'success');
+        } catch (err) {
+          showToast(err instanceof Error ? err.message : 'Failed to publish pull request');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
+  };
+
   const hasConflicts = pr.mergeStatus === 'conflicts';
 
   const tabs: { id: Tab; label: string; count?: number; warn?: boolean }[] = [
@@ -260,6 +309,16 @@ export function PrDetailPage() {
                 </span>
               )}
               {pr.isDraft && <Badge text="Draft" color="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300" />}
+              {pr.isDraft && isMyPr && isActive && (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={handlePublish}
+                  className="ml-1 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors disabled:opacity-50"
+                >
+                  Publish
+                </button>
+              )}
               <button
                 type="button"
                 title="Copy PR link"
@@ -358,7 +417,7 @@ export function PrDetailPage() {
 
         <div className={activeTab === 'files' || activeTab === 'copilot' || activeTab === 'commits' || activeTab === 'conflicts' ? 'p-0' : 'p-6'}>
           {activeTab === 'overview' && (
-            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} knownUsers={knownUsers} onMentionInserted={handleMentionInserted} isEditable={isMyPr && isActive} onUpdateDescription={handleUpdateDescription} />
+            <OverviewTab pr={pr} threads={threads} usersMap={usersMap} currentUserId={profile?.id} knownUsers={knownUsers} onMentionInserted={handleMentionInserted} isEditable={isMyPr && isActive} onUpdateDescription={handleUpdateDescription} onAddReviewer={isActive ? handleAddReviewer : undefined} onRemoveReviewer={isActive ? handleRemoveReviewer : undefined} />
           )}
           {activeTab === 'files' && (
             <FilesTab

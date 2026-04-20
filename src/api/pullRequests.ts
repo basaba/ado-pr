@@ -5,6 +5,7 @@ import type {
   PullRequestCompletionOptions,
   GitRepository,
   IdentityRef,
+  Reviewer,
   VoteValue,
   PolicyEvaluation,
 } from '../types';
@@ -184,6 +185,28 @@ export async function votePullRequest(
   });
 }
 
+/** Add a reviewer to an existing pull request */
+export async function addPrReviewer(
+  repoId: string,
+  prId: number,
+  reviewerId: string,
+  isRequired = false,
+): Promise<Reviewer> {
+  return adoClient.put<Reviewer>(
+    `${prBasePath(repoId, prId)}/reviewers/${reviewerId}`,
+    { id: reviewerId, isRequired },
+  );
+}
+
+/** Remove a reviewer from an existing pull request */
+export async function removePrReviewer(
+  repoId: string,
+  prId: number,
+  reviewerId: string,
+): Promise<void> {
+  await adoClient.delete(`${prBasePath(repoId, prId)}/reviewers/${reviewerId}`);
+}
+
 export async function completePullRequest(
   repoId: string,
   prId: number,
@@ -213,6 +236,16 @@ export async function updatePullRequest(
   fields: { title?: string; description?: string },
 ): Promise<PullRequest> {
   return adoClient.patch<PullRequest>(prBasePath(repoId, prId), fields);
+}
+
+/** Publish a draft pull request (convert draft → regular) */
+export async function publishPullRequest(
+  repoId: string,
+  prId: number,
+): Promise<PullRequest> {
+  return adoClient.patch<PullRequest>(prBasePath(repoId, prId), {
+    isDraft: false,
+  });
 }
 
 export async function setAutoComplete(

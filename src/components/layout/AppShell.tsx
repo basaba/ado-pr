@@ -1,10 +1,49 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, useTheme } from '../../context';
+import { parseAdoPrUrl } from '../../utils';
 
 export function AppShell() {
-  const { profile, logout } = useAuth();
+  const { profile, config, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [prUrl, setPrUrl] = useState('');
+  const [prUrlError, setPrUrlError] = useState<string | null>(null);
+  const [prUrlOpen, setPrUrlOpen] = useState(false);
+  const prUrlInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (prUrlOpen) prUrlInputRef.current?.focus();
+  }, [prUrlOpen]);
+
+  const closePrUrl = () => {
+    setPrUrlOpen(false);
+    setPrUrl('');
+    setPrUrlError(null);
+  };
+
+  const handleOpenPrUrl = (e: FormEvent) => {
+    e.preventDefault();
+    const parsed = parseAdoPrUrl(prUrl);
+    if (!parsed) {
+      setPrUrlError('Not a valid Azure DevOps PR URL');
+      return;
+    }
+    if (
+      config &&
+      (parsed.organization.toLowerCase() !== config.organization.toLowerCase() ||
+        parsed.project.toLowerCase() !== config.project.toLowerCase())
+    ) {
+      setPrUrlError(
+        `URL is for ${parsed.organization}/${parsed.project}, but you are signed in to ${config.organization}/${config.project}.`,
+      );
+      return;
+    }
+    closePrUrl();
+    navigate(`/pr/${encodeURIComponent(parsed.repo)}/${parsed.prId}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
@@ -35,10 +74,72 @@ export function AppShell() {
               >
                 ＋ New PR
               </Link>
+              <button
+                type="button"
+                onClick={() => setPrUrlOpen(true)}
+                className="px-3 py-1 rounded text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                title="Open a PR by pasting its Azure DevOps URL"
+              >
+                Open PR
+              </button>
             </nav>
           )}
         </div>
         <div className="flex items-center gap-3 text-sm">
+          {profile && prUrlOpen && createPortal(
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/50" onClick={closePrUrl} />
+              <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 p-5">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                  Open PR by URL
+                </h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Paste an Azure DevOps pull request URL.
+                </p>
+                <form onSubmit={handleOpenPrUrl} className="mt-4">
+                  <input
+                    ref={prUrlInputRef}
+                    type="text"
+                    value={prUrl}
+                    onChange={(e) => {
+                      setPrUrl(e.target.value);
+                      if (prUrlError) setPrUrlError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') closePrUrl();
+                    }}
+                    placeholder="https://dev.azure.com/org/project/_git/repo/pullrequest/123"
+                    aria-label="Pull request URL"
+                    className={`w-full px-3 py-2 text-sm rounded border bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      prUrlError
+                        ? 'border-red-400 dark:border-red-500'
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  />
+                  {prUrlError && (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">{prUrlError}</p>
+                  )}
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={closePrUrl}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!prUrl.trim()}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>,
+            document.body,
+          )}
           <span className="text-xs text-gray-500 dark:text-gray-400">Dark mode</span>
           <button
             onClick={toggle}

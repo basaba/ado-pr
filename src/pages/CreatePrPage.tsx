@@ -7,6 +7,7 @@ import {
   createPullRequest,
   searchUsers,
   resolveIdentityId,
+  getLatestBranchCommit,
 } from '../api';
 import type { GitRepository } from '../types';
 import type { GitRef, UserSearchResult } from '../api/pullRequests';
@@ -101,6 +102,17 @@ export function CreatePrPage() {
       .catch(() => setBranches([]))
       .finally(() => setBranchesLoading(false));
   }, [selectedRepo]);
+
+  // Auto-fill title from the latest commit on the source branch
+  useEffect(() => {
+    if (!selectedRepo || !sourceBranch) return;
+    let cancelled = false;
+    getLatestBranchCommit(selectedRepo.id, sourceBranch).then((commit) => {
+      if (cancelled || !commit) return;
+      setTitle((prev) => prev || commit.comment || '');
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedRepo, sourceBranch]);
 
   // Search reviewers
   useEffect(() => {

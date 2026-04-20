@@ -4,7 +4,7 @@ import type { useThreads } from '../../hooks';
 import { isTextComment } from '../../utils';
 import { MarkdownContent, MentionTextarea } from '../common';
 import { ThreadList } from './ThreadList';
-import type { IdentitySearchResult } from '../../api/pullRequests';
+import type { IdentitySearchResult, UserSearchResult } from '../../api/pullRequests';
 
 interface Props {
   pr: PullRequest;
@@ -15,9 +15,11 @@ interface Props {
   onMentionInserted?: (user: IdentitySearchResult) => void;
   isEditable?: boolean;
   onUpdateDescription?: (description: string) => Promise<void>;
+  onAddReviewer?: (user: UserSearchResult) => Promise<void>;
+  onRemoveReviewer?: (reviewerId: string) => Promise<void>;
 }
 
-export function OverviewTab({ pr, threads, usersMap, currentUserId, knownUsers: knownUsersProp, onMentionInserted, isEditable, onUpdateDescription }: Props) {
+export function OverviewTab({ pr, threads, usersMap, currentUserId, knownUsers: knownUsersProp, onMentionInserted, isEditable, onUpdateDescription, onAddReviewer, onRemoveReviewer }: Props) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
@@ -112,9 +114,24 @@ export function OverviewTab({ pr, threads, usersMap, currentUserId, knownUsers: 
               {r.isRequired && (
                 <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">Required</span>
               )}
+              {onRemoveReviewer && (
+                <button
+                  onClick={() => onRemoveReviewer(r.id)}
+                  className="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors ml-auto"
+                  title={`Remove ${r.displayName}`}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>
+        {onAddReviewer && (
+          <ReviewerSearch
+            existingReviewerIds={pr.reviewers.map((r) => r.id)}
+            onAdd={onAddReviewer}
+          />
+        )}
       </section>
 
       {/* General comments */}
@@ -177,4 +194,89 @@ function NewCommentBox({ onSubmit, knownUsers = [], onMentionInserted }: { onSub
   );
 }
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { searchUsers } from '../../api/pullRequests';
+
+function ReviewerSearch({
+  existingReviewerIds,
+  onAdd,
+}: {
+  existingReviewerIds: string[];
+  onAdd: (user: UserSearchResult) => Promise<void>;
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<UserSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (query.length < 2) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const users = await searchUsers(query);
+        setResults(users.filter((u) => !existingReviewerIds.includes(u.id)));
+      } catch { setResults([]); }
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, existingReviewerIds]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSelect = useCallback(async (user: UserSearchResult) => {
+    setAdding(true);
+    try {
+      await onAdd(user);
+      setQuery('');
+      setOpen(false);
+      setResults([]);
+    } finally {
+      setAdding(false);
+    }
+  }, [onAdd]);
+
+  return (
+    <div className="mt-3 relative" ref={containerRef}>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder="Add reviewer…"
+        disabled={adding}
+        className="w-full px-3 py-1.5 rounded text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+      />
+      {loading && (
+        <span className="absolute right-3 top-2 text-gray-400 dark:text-gray-500 text-xs animate-pulse">…</span>
+      )}
+      {open && results.length > 0 && (
+        <ul className="absolute z-10 mt-1 w-full max-h-48 overflow-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg text-sm">
+          {results.map((user) => (
+            <li
+              key={user.id}
+              onClick={() => handleSelect(user)}
+              className="px-3 py-2 cursor-pointer text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+            >
+              <div className="font-medium">{user.displayName}</div>
+              {user.mail && (
+                <div className="text-xs text-gray-400 dark:text-gray-500">{user.mail}</div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

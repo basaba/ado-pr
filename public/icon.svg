@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0078d4"/>
+  <g fill="none" stroke="#ffffff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left branch: top circle, vertical line, bottom circle -->
+    <circle cx="160" cy="140" r="36" fill="#ffffff"/>
+    <line x1="160" y1="176" x2="160" y2="336"/>
+    <circle cx="160" cy="372" r="36" fill="#ffffff"/>
+    <!-- Right branch: top circle, line down, curve into left line (merge) -->
+    <circle cx="352" cy="140" r="36" fill="#ffffff"/>
+    <path d="M 352 176 L 352 256 Q 352 320 288 320 L 200 320"/>
+    <!-- Arrow head pointing into left branch (merge target) -->
+    <polyline points="240,288 200,320 240,352" fill="none"/>
+  </g>
+</svg>
